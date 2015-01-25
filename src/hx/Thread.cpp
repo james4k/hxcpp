@@ -279,38 +279,11 @@ Dynamic __hxcpp_thread_create(Dynamic inStart)
 	hx::GCPrepareMultiThreaded();
 	hx::EnterGCFreeZone();
 
-   #if defined(HX_WINRT)
-
-   try
-   {
-     auto workItemHandler = ref new WorkItemHandler([=](IAsyncAction^)
-        {
-            // Run the user callback.
-            hxThreadFunc(info);
-        }, Platform::CallbackContext::Any);
-
-      ThreadPool::RunAsync(workItemHandler, WorkItemPriority::Normal, WorkItemOptions::None);
-   }
-   catch (...)
-   {
-   }
-
-   #elif defined(HX_WINDOWS)
-      bool ok = _beginthreadex(0,0,hxThreadFunc,info,0,0) != 0;
-   #else
-      pthread_t result = 0;
-      int created = pthread_create(&result,0,hxThreadFunc,info);
-      bool ok = created==0;
-   #endif
-
-
-     if (ok)
-     {
-        #ifndef HX_WINDOWS
-        pthread_detach(result);
-        #endif
-        info->mSemaphore->Wait();
-     }
+	bool ok = HxCreateThread(hxThreadFunc, info);
+	if (ok)
+	{
+		info->mSemaphore->Wait();
+	}
 
     hx::ExitGCFreeZone();
     info->CleanSemaphore();

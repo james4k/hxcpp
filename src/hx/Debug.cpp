@@ -141,17 +141,8 @@ public:
         gThreadRefCount += 1;
    
         if (gThreadRefCount == 1) {
-#if defined(HX_WINDOWS)
-#ifndef HX_WINRT
-            _beginthreadex(0, 0, ProfileMainLoop, 0, 0, 0);
-#else
-        // TODO
-#endif
-#else
-            pthread_t result;
-            pthread_create(&result, 0, ProfileMainLoop, 0);
-   #endif
-}
+			HxCreateThread(ProfileMainLoop, 0);
+		}
 
         gThreadMutex.Unlock();
     }

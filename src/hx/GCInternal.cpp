@@ -2267,15 +2267,7 @@ public:
       sMarkDone[inId] = new MySemaphore();
 
       void *info = (void *)(size_t)inId;
-    #ifdef HX_WINRT
-      // TODO
-    #elif defined(HX_WINDOWS)
-      bool ok = _beginthreadex(0,0,SMarkerFunc,info,0,0) != 0;
-    #else
-      pthread_t result = 0;
-      int created = pthread_create(&result,0,SMarkerFunc,info);
-      bool ok = created==0;
-    #endif
+	  HxCreateThread(SMarkerFunc, info);
    }
 
    int Collect(bool inMajor, bool inForceCompact)

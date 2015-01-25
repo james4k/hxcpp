@@ -162,6 +162,29 @@ struct TLSData
 #define THREAD_FUNC_TYPE unsigned int WINAPI
 #define THREAD_FUNC_RET return 0;
 
+inline bool HxCreateThread(unsigned (WINAPI *func)(void *), void *param)
+{
+#ifndef HX_WINRT
+	return (_beginthreadex(0, 0, func, param, 0, 0) != 0);
+#else
+	try
+	{
+		auto workItemHandler = ref new WorkItemHandler([=](IAsyncAction^)
+			{
+				// Run the user callback.
+				hxThreadFunc(info);
+			}, Platform::CallbackContext::Any);
+
+		ThreadPool::RunAsync(workItemHandler, WorkItemPriority::Normal, WorkItemOptions::None);
+	}
+	catch (...)
+	{
+		return false;
+	}
+	return true;
+#endif
+}
+
 #else
 
 struct MyMutex
@@ -190,6 +213,21 @@ struct MyMutex
 
 #define THREAD_FUNC_TYPE void *
 #define THREAD_FUNC_RET return 0;
+
+inline bool HxCreateThread(void *(*func)(void *), void *param)
+{
+	pthread_thread_t t;
+	pthread_attr_t attr;
+	if (pthread_attr_init(&attr) != 0)
+		return false;
+	if (pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
+		return false;
+	if (pthread_create(&t, &attr, func, param) != 0 )
+		return false;
+	if (pthread_attr_destroy(&attr) != 0)
+		return false;
+	return true;
+}
 
 #endif
 
