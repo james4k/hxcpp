@@ -327,7 +327,7 @@ struct TLSData
 };
 
 
-
+#define HX_THREAD_SEMAPHORE_LOCKABLE
 
 struct MySemaphore
 {

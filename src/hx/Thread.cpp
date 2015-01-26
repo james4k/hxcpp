@@ -57,7 +57,7 @@ struct Deque : public Array_obj<Dynamic>
    #endif
 
 
-	#ifdef HX_WINDOWS
+	#ifndef HX_THREAD_SEMAPHORE_LOCKABLE
 	MyMutex     mMutex;
 	void PushBack(Dynamic inValue)
 	{
