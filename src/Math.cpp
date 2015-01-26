@@ -5,10 +5,10 @@
 
 #include <stdlib.h>
 #include <time.h>
-#ifndef HX_WINDOWS
+#if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
 #include <sys/time.h>
-#else
+#elif defined(HX_WINDOWS)
 #include <process.h>
 #endif
 
@@ -137,19 +137,19 @@ void Math_obj::__boot()
 {
    Static(Math_obj::__mClass) = hx::RegisterClass(HX_CSTRING("Math"),TCanCast<Math_obj>,sMathFields,sNone, &__CreateEmpty,0 , 0 );
 
-	unsigned int t;
+	unsigned int t = (unsigned int)(HxTimestamp() * 1e6);
 #ifdef HX_WINDOWS
-	t = clock();
    #ifdef HX_WINRT
 	int pid = Windows::Security::Cryptography::CryptographicBuffer::GenerateRandomNumber();
    #else
 	int pid = _getpid();
    #endif
-#else
+#elif defined(__unix__) || defined(__APPLE__)
 	int pid = getpid();
-	struct timeval tv;
-	gettimeofday(&tv,0);
-	t = tv.tv_sec * 1000000 + tv.tv_usec;
+#else
+	// As a last resort, we'll use a memory location. Many systems have some
+	// kind of address space randomization.
+	int pid = (int)&t;
 #endif	
 
   srand(t ^ (pid | (pid << 16)));
