@@ -1,7 +1,7 @@
 #include <hxcpp.h>
 
 #include <hx/Thread.h>
-#include <time.h>
+#include <hx/Time.h>
 
 #ifdef HX_WINRT
 using namespace Windows::Foundation;
@@ -445,19 +445,10 @@ public:
 
 	hx::InternalFinalizer *mFinalizer;
 
-	#ifdef HX_WINDOWS
 	double Now()
 	{
-		return (double)clock()/CLOCKS_PER_SEC;
+		return HxTimestamp();
 	}
-	#else
-	double Now()
-	{
-		struct timeval tv;
-		gettimeofday(&tv,0);
-		return tv.tv_sec + tv.tv_usec*0.000001;
-	}
-	#endif
 
 	static void clean(hx::Object *inObj)
 	{

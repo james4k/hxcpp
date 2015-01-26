@@ -1,12 +1,12 @@
 #include <hxcpp.h>
 #include <hxMath.h>
+#include <hx/Time.h>
 
 #ifdef HX_WINDOWS
 #include <windows.h>
 #include <stdio.h>
 #include <io.h>
 #else
-#include <sys/time.h>
 #include <stdio.h>
 #ifndef EMSCRIPTEN
 typedef int64_t __int64;
@@ -29,7 +29,6 @@ extern "C" EXPORT_EXTRA void AppLogInternal(const char* pFunction, int lineNumbe
 #include <string>
 #include <vector>
 #include <map>
-#include <time.h>
 
 
 #ifdef HX_ANDROID
@@ -204,7 +203,6 @@ void __trace(Dynamic inObj, Dynamic inData)
 #endif
 }
 
-static double t0 = 0;
 double  __time_stamp()
 {
 #ifdef HX_WINDOWS
@@ -225,15 +223,13 @@ double  __time_stamp()
       if (period!=0)
          return (now-t0)*period;
    }
-
-   return (double)clock() / ( (double)CLOCKS_PER_SEC);
-#else
-   struct timeval tv;
-   if( gettimeofday(&tv,0) )
-      throw Dynamic("Could not get time");
-   double t =  ( tv.tv_sec + ((double)tv.tv_usec) / 1000000.0 );
-   if (t0==0) t0 = t;
-   return t-t0;
+   return HxTimestamp();
+#else 
+	static double t0 = 0;
+	double t = HxTimestamp();
+	if (t0 == 0)
+	   t0 = t;
+	return t - t0;
 #endif
 }
 
@@ -291,8 +287,7 @@ Array<String> __get_args()
    #else
    #ifdef ANDROID
    // TODO: Get from java
-   #else // linux
-
+   #elif defined(__linux__)
    char buf[80];
    sprintf(buf, "/proc/%d/cmdline", getpid());
    FILE *cmd = fopen(buf,"rb");
@@ -315,6 +310,8 @@ Array<String> __get_args()
       }
       fclose(cmd);
    }
+   #elif
+   // TODO: other platforms.
    #endif
 
    #endif
