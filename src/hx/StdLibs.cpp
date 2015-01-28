@@ -310,7 +310,7 @@ Array<String> __get_args()
       }
       fclose(cmd);
    }
-   #elif
+   #else
    // TODO: other platforms.
    #endif
 
