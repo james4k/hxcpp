@@ -1,6 +1,7 @@
 #include <hxcpp.h>
 
 #include <hx/GC.h>
+#include <hx/Memory.h>
 #include <hx/Thread.h>
 #include "Hash.h"
 
@@ -1399,7 +1400,7 @@ void *InternalCreateConstBuffer(const void *inData,int inSize,bool inAddStringHa
 {
    bool addHash = inAddStringHash && inData && inSize>0;
 
-   int *result = (int *)malloc(inSize + sizeof(int) + (addHash ? sizeof(int):0) );
+   int *result = (int *)HxAlloc(inSize + sizeof(int) + (addHash ? sizeof(int):0) );
    if (addHash)
    {
       unsigned int hash = 0;
@@ -1559,7 +1560,7 @@ public:
       if (inSize<<1 > mLargeAllocSpace)
          mLargeAllocSpace = inSize<<1;
 
-      unsigned int *result = (unsigned int *)malloc(inSize + sizeof(int)*2);
+      unsigned int *result = (unsigned int *)HxAlloc(inSize + sizeof(int)*2);
       if (!result)
       {
          #ifdef SHOW_MEM_EVENTS
@@ -1567,7 +1568,7 @@ public:
          #endif
 
          CollectFromThisThread();
-         result = (unsigned int *)malloc(inSize + sizeof(int)*2);
+         result = (unsigned int *)HxAlloc(inSize + sizeof(int)*2);
       }
       result[0] = inSize;
       result[1] = gMarkID;
@@ -1737,7 +1738,7 @@ public:
             if (gid<0)
               gid = gAllocGroups.next();
 
-            char *chunk = (char *)malloc( 1<<(IMMIX_BLOCK_GROUP_BITS + IMMIX_BLOCK_BITS) );
+            char *chunk = (char *)HxAlloc( 1<<(IMMIX_BLOCK_GROUP_BITS + IMMIX_BLOCK_BITS) );
             // We really really have to try collect!
             if (chunk==0 && !inTryCollect)
             {
@@ -2015,7 +2016,7 @@ public:
          }
       }
 
-      free(gAllocGroups[inGid].alloc);
+      HxFree(gAllocGroups[inGid].alloc);
       gAllocGroups[inGid].alloc = 0;
 
       #ifdef SHOW_MEM_EVENTS
@@ -2341,7 +2342,7 @@ public:
          if ( (blob[1] & IMMIX_ALLOC_MARK_ID) != gMarkID )
          {
             mLargeAllocated -= *blob;
-            free(mLargeList[idx]);
+            HxFree(mLargeList[idx]);
             mLargeList.qerase(idx);
          }
          else
