@@ -16,20 +16,20 @@ inline double HxTimestamp() {
 #endif
 }
 
-inline void HxSleep(unsigned int ms) {
 #ifdef HX_WINDOWS
 #ifndef HX_WINRT
-	Sleep(ms);
+#define HxSleep(ms) Sleep(ms)
 #else
-	// TODO
+// TODO
 #endif
 #else
+inline void HxSleep(unsigned int ms) {
 	struct timespec t;
 	struct timespec tmp;
 	t.tv_sec = 0;
 	t.tv_nsec = ms * 1000000;
 	nanosleep(&t, &tmp);
-#endif
 }
+#endif
 
 #endif

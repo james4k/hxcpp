@@ -1,7 +1,7 @@
 #include <hxcpp.h>
 #include <limits>
 #include <hxMath.h>
-
+#include <hx/Time.h>
 
 #include <stdlib.h>
 #include <time.h>
