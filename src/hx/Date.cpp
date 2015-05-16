@@ -4,7 +4,8 @@
 
 #ifdef HX_WINDOWS
    #include <windows.h>
-   #include <Shlobj.h>
+   // TODO(james4k): do certain versions of windows/SDKs need this?
+   //#include <Shlobj.h>
 #else
    #ifdef EPPC
       #include <time.h>
