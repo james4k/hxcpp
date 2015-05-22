@@ -206,7 +206,7 @@ String GetFileContents(String inFile)
    return String(buf,strlen(buf)).dup();
 }
 
-#ifndef HX_WINRT
+#if !defined(ANDROID) && !defined(HX_WINRT) && !defined(IPHONE) && !defined(EMSCRIPTEN) && !defined(STATIC_LINK)
 String GetEnv(const char *inPath)
 {
    const char *env  = getenv(inPath);
@@ -222,13 +222,11 @@ String FindHaxelib(String inLib)
 
    String haxepath;
 
-   #if !defined(HX_WINRT) && !defined(EPPC)
-      struct stat s;
-      if ( (stat(".haxelib",&s)==0 && (s.st_mode & S_IFDIR) ) )
-         haxepath = HX_CSTRING(".haxelib");
-      if (loadDebug)
-          printf( haxepath.length ? "Found local .haxelib\n" : "No local .haxelib\n");
-   #endif
+   struct stat s;
+   if ( (stat(".haxelib",&s)==0 && (s.st_mode & S_IFDIR) ) )
+      haxepath = HX_CSTRING(".haxelib");
+   if (loadDebug)
+      printf( haxepath.length ? "Found local .haxelib\n" : "No local .haxelib\n");
 
    if (haxepath.length==0)
    {
