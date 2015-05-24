@@ -7,15 +7,14 @@
    // TODO(james4k): do certain versions of windows/SDKs need this?
    //#include <Shlobj.h>
 #else
-   #ifdef EPPC
-      #include <time.h>
-   #else
-      #include <sys/time.h>
-   #endif
    #include <stdint.h>
-   #ifdef HX_LINUX
+   // TODO(james4k): confirm these ifdef changes don't break other platforms
+   #ifdef NEKO_POSIX
       #include <unistd.h>
       #include <stdio.h>
+      #if _POSIX_VERSION >= 199309L
+         #include <sys/time.h>
+      #endif
    #endif
 #endif
 
@@ -73,14 +72,12 @@ double __hxcpp_time_stamp()
       if( gettimeofday(&tv,NULL) )
          return 0;
       double t =  ( tv.tv_sec + ((double)tv.tv_usec) / 1000000.0 );
-   #elif defined(EPPC)
-      time_t tod;
-      time(&tod);
-      double t = (double)tod;
-   #else
+   #elif _POSIX_C_SOURCE >= 199309L
       struct timespec ts;
       clock_gettime(CLOCK_MONOTONIC, &ts);
       double t =  ( ts.tv_sec + ((double)ts.tv_nsec)*1e-9  );
+   #else
+      double t = (double)clock() * (1.0 / CLOCKS_PER_SEC);
    #endif
    if (t0==0) t0 = t;
    return t-t0;
