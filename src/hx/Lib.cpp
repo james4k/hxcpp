@@ -11,7 +11,7 @@
 #endif
 
 
-#if !defined(HX_WINRT) && !defined(EPPC)
+#if !defined(HX_WINRT) && !defined(STATIC_LINK)
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
