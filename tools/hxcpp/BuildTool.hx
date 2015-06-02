@@ -13,6 +13,8 @@ import cpp.vm.Mutex;
 import cpp.vm.Tls;
 #end
 
+using StringTools;
+
 #if haxe3
 typedef Hash<T> = haxe.ds.StringMap<T>;
 #end
@@ -909,7 +911,7 @@ class BuildTool
          defines.set("linux_host", "1");
 
 
-      if (args.length>0 && args[0].substr( args[0].length - 6)==".cppia")
+      if (args.length>0 && args[0].endsWith(".cppia"))
       {
          var binDir = isWindows ? "Windows" : isMac ? "Mac64" : isLinux ? "Linux64" : null;
          if (binDir==null)
@@ -944,6 +946,40 @@ class BuildTool
 
          Sys.exit( Sys.command( exe, args ) );
       }
+      else if (args.length>0 && args[0].endsWith(".js"))
+      {
+         Setup.initHXCPPConfig(defines);
+         Setup.setupEmscripten(defines);
+         var node = defines.get("EMSCRIPTEN_NODE_JS");
+         Log.v( node==null ? "EMSCRIPTEN_NODE_JS undefined, using 'node'" : 'Using $node from EMSCRIPTEN_NODE_JS');
+         if (node=="" || node==null)
+            node = "node";
+
+         Log.v(  node + " " + args.join(" ") );
+         Sys.exit( Sys.command( node, args ) );
+      }
+      else if (args.length==1 && args[0]=="defines")
+      {
+         var dir = '$HXCPP/tools/hxcpp';
+         try
+         {
+            var defineMatch = ~/m*defines\.\w+\("(\w+)"/i;
+            var allDefines = new Map<String,Bool>();
+            for(file in FileSystem.readDirectory(dir))
+               if (file.endsWith(".hx"))
+                  for(line in sys.io.File.getContent(file).split("\n"))
+                     if (defineMatch.match(line))
+                        allDefines.set(defineMatch.matched(1),true);
+            for(key in allDefines.keys())
+               Sys.println(key);
+         }
+         catch(e:Dynamic)
+         {
+            Log.error('Could not read $dir : $e');
+         }
+         return;
+      }
+
 
       isRPi = isLinux && Setup.isRaspberryPi();
 
@@ -973,6 +1009,8 @@ class BuildTool
             if (val=="verbose")
                Log.verbose = true;
          }
+         else if (arg=="-debug")
+               defines.set("debug","1");
          else if (arg=="-no-options")
             optionsTxt = "";
          else if (arg=="-options")
@@ -1499,23 +1537,67 @@ class BuildTool
       }
    }
 
+   public function dospath(path:String) : String
+   {
+      if (mDefines.exists("windows_host"))
+      {
+         path = path.split("\\").join("/");
+         var filename = "";
+         var parts = path.split("/");
+         if (!FileSystem.isDirectory(path))
+            filename = parts.pop();
+
+         var oldDir = Sys.getCwd();
+         var output = "";
+         var err = "";
+         Sys.setCwd(parts.join("\\"));
+         try {
+            var bat = '$HXCPP/toolchain/dospath.bat'.split("/").join("\\");
+            var process = new Process(bat,[]);
+            output = process.stdout.readAll().toString();
+            output = output.split("\r")[0].split("\n")[0];
+            err  = process.stderr.readAll().toString();
+            process.close();
+         } catch (e:Dynamic) { Log.error(e); }
+         Sys.setCwd(oldDir);
+
+         if (output=="")
+            Log.error("Could not find dos path for " + path + " " + err);
+         return output + "\\" + filename;
+      }
+
+      return path;
+   }
+
    public function substitute(str:String,needDollar=true):String
    {
       var match = needDollar ? mVarMatch : mNoDollarMatch;
       while( match.match(str) )
       {
          var sub = match.matched(1);
-         if (sub.substr(0,8)=="haxelib:")
+         if (sub.startsWith("haxelib:"))
          {
             sub = PathManager.getHaxelib(sub.substr(8));
             sub = PathManager.standardize(sub);
          }
-         else if (sub.substr(0,13)=="removeQuotes:")
+         else if (sub.startsWith("removeQuotes:"))
          {
             sub = mDefines.get(sub.substr(13));
             var len = sub.length;
             if (len>1 && sub.substr(0,1)=="\"" && sub.substr(len-1)=="\"")
                sub = sub.substr(1,len-2);
+         }
+         else if (sub.startsWith("dospath:") )
+         {
+            sub = dospath( mDefines.get(sub.substr(8)) );
+         }
+         else if (sub.startsWith("dir:") )
+         {
+            sub = dospath( mDefines.get(sub.substr(4)) );
+            if (!FileSystem.isDirectory(sub))
+            {
+               sub = haxe.io.Path.directory(sub);
+            }
          }
          else
             sub = mDefines.get(sub);

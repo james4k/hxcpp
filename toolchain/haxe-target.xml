@@ -33,9 +33,11 @@
   <depend name="${HXCPP}/include/hx/OS.h"/>
   <depend name="${HXCPP}/include/cpp/Pointer.h"/>
   <depend name="${HXCPP}/include/hx/Scriptable.h"/>
-  <depend name="${HXCPP}/toolchain/haxe-target.xml"/>
-  <depend name="${HXCPP}/toolchain/${toolchain}-toolchain.xml" ifExists="${HXCPP}/toolchain/${toolchain}-toolchain.xml"/>
-  <depend name="${HXCPP}/hxcpp.n" ifExists="${HXCPP}/hxcpp.n" />
+  <section unless="HXCPP_LINK_NO_TOOL_DEPENDS" >
+     <depend name="${HXCPP}/toolchain/haxe-target.xml"/>
+     <depend name="${HXCPP}/toolchain/${toolchain}-toolchain.xml" ifExists="${HXCPP}/toolchain/${toolchain}-toolchain.xml"/>
+     <depend name="${HXCPP}/hxcpp.n" ifExists="${HXCPP}/hxcpp.n" />
+  </section>
 </files>
  
 
@@ -75,7 +77,7 @@
   <options name="Options.txt"/>
   <depend name="${HXCPP}/src/hx/cppia/Cppia.h" />
   <depend name="${HXCPP}/src/hx/cppia/CppiaStream.h" />
-  <depend name="${HXCPP}/src/hx/cppia/CppiaCompiler.h" />
+  <depend name="${HXCPP}/src/hx/cppia/CppiaCompiler.h"  if="CPPIA_JIT" />
   <compilerflag value="-DHX_UNDEFINE_H" />
   <compilerflag value="-DCPPIA_JIT" if="CPPIA_JIT" />
 
@@ -86,7 +88,7 @@
   <file name = "src/hx/cppia/GlobalBuiltin.cpp" />
   <file name = "src/hx/cppia/HaxeNative.cpp" />
   <file name = "src/hx/cppia/CppiaVars.cpp" />
-  <file name = "src/hx/cppia/CppiaCompiler.cpp" />
+  <file name = "src/hx/cppia/CppiaCompiler.cpp" if="CPPIA_JIT" />
 </files>
 
 

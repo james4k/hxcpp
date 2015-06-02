@@ -7,7 +7,10 @@
 #include <vector>
 #include <string>
 #include <map>
+
+#ifdef CPPIA_JIT
 #include "CppiaCompiler.h"
+#endif
 
 namespace hx
 {
@@ -148,9 +151,10 @@ struct CppiaExpr
    virtual CppiaExpr   *makeCrement(CrementOp inOp) { return 0; }
 
 
+   #ifdef CPPIA_JIT
    virtual void preGen(CppiaCompiler &compiler) { }
    virtual void genCode(CppiaCompiler &compiler, const Addr &inDest, ExprType resultType);
-
+   #endif
 };
 
 CppiaExpr *createCppiaExpr(CppiaStream &inStream);
@@ -487,7 +491,13 @@ template<> inline bool &runValue(bool& outValue, CppiaCtx *ctx, CppiaExpr *expr)
 }
 
 
-template<> inline Float &runValue(Float& outValue, CppiaCtx *ctx, CppiaExpr *expr)
+template<> inline double &runValue(double& outValue, CppiaCtx *ctx, CppiaExpr *expr)
+{
+   return outValue = expr->runFloat(ctx);
+}
+
+
+template<> inline float &runValue(float& outValue, CppiaCtx *ctx, CppiaExpr *expr)
 {
    return outValue = expr->runFloat(ctx);
 }

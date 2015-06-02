@@ -9,17 +9,21 @@ using namespace hx;
 namespace hx
 {
 
+Array<Dynamic> ArrayBase::__new(int inSize,int inReserve)
+ { return  Array<Dynamic>(new Array_obj<Dynamic>(inSize,inReserve)); }
+
 ArrayBase::ArrayBase(int inSize,int inReserve,int inElementSize,bool inAtomic)
 {
    length = inSize;
-   mAlloc = inSize < inReserve ? inReserve : inSize;
-   if (mAlloc)
+   int alloc = inSize < inReserve ? inReserve : inSize;
+   if (alloc)
    {
       mBase = (char *)( (!inAtomic) ?
-        hx::NewGCBytes(0, mAlloc * inElementSize ) : hx::NewGCPrivate(0,mAlloc*inElementSize));
+        hx::NewGCBytes(0, alloc * inElementSize ) : hx::NewGCPrivate(0,alloc*inElementSize));
    }
    else
       mBase = 0;
+   mAlloc = alloc;
 }
 
 
@@ -30,11 +34,19 @@ void ArrayBase::EnsureSize(int inSize) const
    {
       if (s>mAlloc)
       {
-         mAlloc = s*3/2 + 10;
-         int bytes = mAlloc * GetElementSize();
+         bool wasUnamanaged = mAlloc<0;
+         int newAlloc = s*3/2 + 10;
+         int bytes = newAlloc * GetElementSize();
          if (mBase)
          {
-            mBase = (char *)hx::GCRealloc(mBase, bytes );
+            if (wasUnamanaged)
+            {
+               char *base=(char *)(AllocAtomic() ? hx::NewGCPrivate(0,bytes) : hx::NewGCBytes(0,bytes));
+               memcpy(base,mBase,length*GetElementSize());
+               mBase = base;
+            }
+            else
+               mBase = (char *)hx::GCRealloc(mBase, bytes );
          }
          else if (AllocAtomic())
          {
@@ -44,6 +56,7 @@ void ArrayBase::EnsureSize(int inSize) const
          {
             mBase = (char *)hx::NewGCBytes(0,bytes);
          }
+         mAlloc = newAlloc;
       }
       length = s;
    }
@@ -143,7 +156,16 @@ void ArrayBase::__SetSizeExact(int inSize)
       int bytes = inSize * GetElementSize();
       if (mBase)
       {
-         mBase = (char *)hx::GCRealloc(mBase, bytes );
+         bool wasUnamanaged = mAlloc<0;
+
+         if (wasUnamanaged)
+         {
+            char *base=(char *)(AllocAtomic() ? hx::NewGCPrivate(0,bytes) : hx::NewGCBytes(0,bytes));
+            memcpy(base,mBase,std::min(length,inSize)*GetElementSize());
+            mBase = base;
+         }
+         else
+            mBase = (char *)hx::GCRealloc(mBase, bytes );
       }
       else if (AllocAtomic())
       {
@@ -334,6 +356,13 @@ void ArrayBase::safeSort(Dynamic inSorter, bool inIsString)
 
 
 
+#ifdef HXCPP_VISIT_ALLOCS
+#define ARRAY_VISIT_FUNC \
+    void __Visit(hx::VisitContext *__inCtx) { HX_VISIT_MEMBER(mThis); }
+#else
+#define ARRAY_VISIT_FUNC
+#endif
+
 #define DEFINE_ARRAY_FUNC(func,array_list,dynamic_arg_list,arg_list,ARG_C) \
 struct ArrayBase_##func : public hx::Object \
 { \
@@ -346,7 +375,7 @@ struct ArrayBase_##func : public hx::Object \
    void *__GetHandle() const { return mThis; } \
    int __ArgCount() const { return ARG_C; } \
    void __Mark(hx::MarkContext *__inCtx) { HX_MARK_MEMBER(mThis); } \
-   void __Visit(hx::VisitContext *__inCtx) { HX_VISIT_MEMBER(mThis); } \
+   ARRAY_VISIT_FUNC \
    Dynamic __Run(const Array<Dynamic> &inArgs) \
    { \
       return mThis->__##func(array_list); return Dynamic(); \

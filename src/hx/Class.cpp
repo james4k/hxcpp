@@ -238,8 +238,6 @@ bool Class_obj::__HasField(const String &inString)
       for(int s=0;s<mStatics->size();s++)
          if (mStatics[s]==inString)
             return true;
-   if (mSuper)
-      return (*mSuper)->__HasField(inString);
    return false;
 }
 
@@ -307,9 +305,9 @@ const hx::StorageInfo* Class_obj::GetMemberStorage(String inName)
          if (s->name == inName)
             return s;
       }
-      if (mSuper)
-         return (*mSuper)->GetMemberStorage(inName);
    }
+   if (mSuper)
+      return (*mSuper)->GetMemberStorage(inName);
    return 0;
 }
 
@@ -382,5 +380,19 @@ void VisitClassStatics(hx::VisitContext *__inCtx)
 
 
 } // End namespace hx
+
+Array<String> __hxcpp_get_class_list()
+{
+   Array<String> result = Array_obj<String>::__new();
+   if (hx::sClassMap)
+   {
+      for(hx::ClassMap::iterator i=hx::sClassMap->begin(); i!=hx::sClassMap->end(); ++i)
+      {
+         if (i->second.mPtr)
+            result->push( i->first );
+      }
+   }
+   return result;
+}
 
 

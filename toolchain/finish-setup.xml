@@ -12,9 +12,8 @@
 
 <set name="STD_MODULE_LINK" value="dll"/>
 
-<set name="static_link" value="1" if="iphoneos" unless="dll_import" />
-<set name="static_link" value="1" if="iphonesim" unless="dll_import" />
-<set name="static_link" value="1" if="emscripten" unless="dll_import" />
+<set name="static_link" value="1" if="iphoneos" unless="dll_import||exe_link" />
+<set name="static_link" value="1" if="iphonesim" unless="dll_import||exe_link" />
 
 <set name="LIBPREFIX" value="lib" if="static_link" unless="STATICLIBPREFIX" />
 <set name="LIBPREFIX" value="${STATICLIBPREFIX}" if="static_link" unless="LIBPREFIX" />
@@ -64,10 +63,12 @@
 
 <set name="IPHONE_VER" value="4.2" unless="IPHONE_VER" />
 
+<set name="HXCPP_DEBUG_LINK" value="1" if="debug"/>
 
 <section if="isMsvc">
-   <set name="HXCPP_WINXP_COMPAT" value="1" unless="HXCPP_NO_WINXP_COMPAT" />
-   <unset name="HXCPP_WINXP_COMPAT" if="HXCPP_M64" />
+   <section unless="HXCPP_M64">
+      <set name="HXCPP_WINXP_COMPAT" value="1" unless="HXCPP_NO_WINXP_COMPAT" />
+   </section>
    <setup name="msvc"/>
 
    <section if="static_link" >

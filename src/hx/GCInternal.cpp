@@ -1143,6 +1143,10 @@ FILE_SCOPE FinalizerList *sgFinalizers = 0;
 typedef std::map<hx::Object *,hx::finalizer> FinalizerMap;
 FILE_SCOPE FinalizerMap sFinalizerMap;
 
+typedef void (*HaxeFinalizer)(Dynamic);
+typedef std::map<hx::Object *,HaxeFinalizer> HaxeFinalizerMap;
+FILE_SCOPE HaxeFinalizerMap sHaxeFinalizerMap;
+
 hx::QuickVec<int> sFreeObjectIds;
 typedef std::map<hx::Object *,int> ObjectIdMap;
 typedef hx::QuickVec<hx::Object *> IdObjectMap;
@@ -1265,6 +1269,24 @@ void RunFinalizers()
       i = next;
    }
 
+
+   for(HaxeFinalizerMap::iterator i=sHaxeFinalizerMap.begin(); i!=sHaxeFinalizerMap.end(); )
+   {
+      hx::Object *obj = i->first;
+      HaxeFinalizerMap::iterator next = i;
+      ++next;
+
+      unsigned char mark = ((unsigned char *)obj)[ENDIAN_MARK_ID_BYTE];
+      if ( mark!=gByteMarkID )
+      {
+         (*i->second)(obj);
+         sHaxeFinalizerMap.erase(i);
+      }
+
+      i = next;
+   }
+
+
    for(ObjectIdMap::iterator i=sObjectIdMap.begin(); i!=sObjectIdMap.end(); )
    {
       ObjectIdMap::iterator next = i;
@@ -1360,6 +1382,27 @@ void  GCSetFinalizer( hx::Object *obj, hx::finalizer f )
    else
       sFinalizerMap[obj] = f;
 }
+
+
+// Callback finalizer on non-abstract type;
+void  GCSetHaxeFinalizer( hx::Object *obj, HaxeFinalizer f )
+{
+   if (!obj)
+      throw Dynamic(HX_CSTRING("set_finalizer - invalid null object"));
+   if (((unsigned int *)obj)[-1] & HX_GC_CONST_ALLOC_BIT)
+      throw Dynamic(HX_CSTRING("set_finalizer - invalid const object"));
+
+   AutoLock lock(*gSpecialObjectLock);
+   if (f==0)
+   {
+      HaxeFinalizerMap::iterator i = sHaxeFinalizerMap.find(obj);
+      if (i!=sHaxeFinalizerMap.end())
+         sHaxeFinalizerMap.erase(i);
+   }
+   else
+      sHaxeFinalizerMap[obj] = f;
+}
+
 
 void GCDoNotKill(hx::Object *inObj)
 {
@@ -1791,6 +1834,14 @@ public:
           hx::finalizer f = i->second;
           hx::sFinalizerMap.erase(i);
           hx::sFinalizerMap[inTo] = f;
+       }
+
+       hx::HaxeFinalizerMap::iterator h = hx::sHaxeFinalizerMap.find(inFrom);
+       if (h!=hx::sHaxeFinalizerMap.end())
+       {
+          hx::HaxeFinalizer f = h->second;
+          hx::sHaxeFinalizerMap.erase(h);
+          hx::sHaxeFinalizerMap[inTo] = f;
        }
 
        hx::MakeZombieSet::iterator mz = hx::sMakeZombieSet.find(inFrom);
@@ -2268,7 +2319,13 @@ public:
       sMarkDone[inId] = new MySemaphore();
 
       void *info = (void *)(size_t)inId;
+    #ifdef HX_WINRT
+      // TODO
+    #elif defined(EMSCRIPTEN)
+    // Only one thread
+    #else
 	  HxCreateThread(SMarkerFunc, info);
+    #endif
    }
 
    int Collect(bool inMajor, bool inForceCompact)
@@ -2545,6 +2602,11 @@ void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx)
    GCLOG("Mark conservative %p...%p (%d)\n", inBottom, inTop, (inTop-inBottom) );
    #endif
 
+   #ifdef EMSCRIPTEN
+   if (inTop<inBottom)
+      std::swap(inBottom,inTop);
+   #endif
+
    if (sizeof(int)==4 && sizeof(void *)==8)
    {
       // Can't start pointer on last integer boundary...
@@ -2772,6 +2834,12 @@ public:
 
    void *Alloc(int inSize,bool inIsObject)
    {
+      #ifdef HXCPP_ALIGN_FLOAT
+         #define HXCPP_ALIGN_ALLOC
+      #endif
+
+
+
       #ifdef HXCPP_DEBUG
       if (mGCFreeZone)
          CriticalGCError("Alloacting from a GC-free thread");
@@ -2787,9 +2855,23 @@ public:
       #endif
 
       int s = inSize +sizeof(int);
-      // Try to squeeze it on this line ...
-      if (mCurrentPos > 0)
+
+      #ifdef HXCPP_ALIGN_ALLOC
+      if (mCurrentPos >= IMMIX_LINE_LEN-4)
       {
+         mCurrentPos = 0;
+         mCurrentLine++;
+      }
+      #endif
+      // Try to squeeze it on this line ...
+      if (mCurrentPos > 0
+          )
+      {
+         #ifdef HXCPP_ALIGN_ALLOC
+         // Since we add sizeof(int), must be unaligned initially
+         if ( !(mCurrentPos & 0x4))
+            mCurrentPos += 4;
+         #endif
          int skip = 1;
          int extra_lines = (s + mCurrentPos-1) >> IMMIX_LINE_BITS;
 
@@ -2845,6 +2927,9 @@ public:
       int required_rows = (s + IMMIX_LINE_LEN-1) >> IMMIX_LINE_BITS;
       int last_start = IMMIX_LINES - required_rows;
 
+      #ifdef HXCPP_ALIGN_ALLOC
+      s+=4;
+      #endif
       while(1)
       {
          // Alloc new block, if required ...
@@ -2879,18 +2964,25 @@ public:
             // Ok, found a gap
             unsigned char *row = mCurrent->mRow[mCurrentLine];
 
-            int *result = (int *)(row + mCurrentPos);
+            int *result = (int *)(row /*+ mCurrentPos*/);
+            #ifdef HXCPP_ALIGN_ALLOC
+            result++;
+            #endif
             *result = inSize | gMarkID |
                (required_rows==1 ? IMMIX_ALLOC_SMALL_OBJ : IMMIX_ALLOC_MEDIUM_OBJ );
 
             if (inIsObject)
                *result |= IMMIX_ALLOC_IS_OBJECT;
 
-            mCurrent->mRowFlags[mCurrentLine] = mCurrentPos | IMMIX_ROW_HAS_OBJ_LINK;
+            #ifdef HXCPP_ALIGN_ALLOC
+            mCurrent->mRowFlags[mCurrentLine] = 4 | IMMIX_ROW_HAS_OBJ_LINK;
+            #else
+            mCurrent->mRowFlags[mCurrentLine] = /*mCurrentPos |*/ IMMIX_ROW_HAS_OBJ_LINK;
+            #endif
 
             //mCurrent->DirtyLines(mCurrentLine,required_rows);
             mCurrentLine += required_rows - 1;
-            mCurrentPos = (mCurrentPos + s) & (IMMIX_LINE_LEN-1);
+            mCurrentPos = (/*mCurrentPos +*/ s) & (IMMIX_LINE_LEN-1);
             if (mCurrentPos==0)
                mCurrentLine++;
 
@@ -3127,7 +3219,6 @@ void *InternalNew(int inSize,bool inIsObject)
 }
 
 
-
 // Force global collection - should only be called from 1 thread.
 int InternalCollect(bool inMajor,bool inCompact)
 {
@@ -3310,7 +3401,7 @@ hx::Object *__hxcpp_get_next_zombie()
 
 void __hxcpp_set_finalizer(Dynamic inObj, void *inFunc)
 {
-   GCSetFinalizer( inObj.mPtr, (hx::finalizer) inFunc );
+   GCSetHaxeFinalizer( inObj.mPtr, (hx::HaxeFinalizer) inFunc );
 }
 
 extern "C"

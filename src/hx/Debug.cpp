@@ -6,6 +6,7 @@
 #include <hx/Debug.h>
 #include <hx/Thread.h>
 #include <hx/Time.h>
+#include <hx/OS.h>
 #include "QuickVec.h"
 
 #ifdef ANDROID
@@ -672,7 +673,16 @@ public:
 
     static bool BreakCriticalError(const String &inErr)
     {
-        GetCallerCallStack()->DoBreak
+        CallStack *stack = GetCallerCallStack();
+
+        //if the thread with the critical error is the debugger one,
+        //we don't break as it would block debugging since the debugger thread
+        //is the only one which can wake up application threads.
+        if (stack->GetThreadNumber() == g_debugThreadNumber) {
+           return false;
+        }
+
+        stack->DoBreak
             (STATUS_STOPPED_CRITICAL_ERROR, -1, &inErr);
 
         return true;
@@ -1023,12 +1033,15 @@ private:
 class Breakpoints
 {
 public:
+
+#ifdef HXCPP_DEBUG_HASHES
     static int Hash(int value, const char *inString)
     {
        while(*inString)
           value = value*223 + *inString++;
        return value;
     }
+#endif
 
     static int Add(String inFileName, int lineNumber)
     {
@@ -1332,7 +1345,9 @@ private:
     Breakpoints()
         : mRefCount(1), mBreakpointCount(0), mBreakpoints(0)
     {
+#ifdef HXCPP_DEBUG_HASHES
        calcCombinedHash();
+#endif
     }
 
     // Copies breakpoints from toCopy and adds a new file:line breakpoint
@@ -1349,8 +1364,13 @@ private:
         mBreakpoints[toCopy->mBreakpointCount].isFileLine = true;
         mBreakpoints[toCopy->mBreakpointCount].fileOrClassName = fileName;
         mBreakpoints[toCopy->mBreakpointCount].lineNumber = lineNumber;
-        mBreakpoints[toCopy->mBreakpointCount].hash = Hash(0, fileName);
+
+#ifdef HXCPP_DEBUG_HASHES
+        mBreakpoints[toCopy->mBreakpointCount].hash = Hash(lineNumber, fileName);
         calcCombinedHash();
+#else
+        mBreakpoints[toCopy->mBreakpointCount].hash = 0;
+#endif
     }
 
     // Copies breakpoints from toCopy and adds a new class:function breakpoint
@@ -1367,12 +1387,17 @@ private:
         mBreakpoints[toCopy->mBreakpointCount].isFileLine = false;
         mBreakpoints[toCopy->mBreakpointCount].fileOrClassName = className;
         mBreakpoints[toCopy->mBreakpointCount].functionName = functionName.c_str();
+
+#ifdef HXCPP_DEBUG_HASHES
         int hash = Hash(0,className);
         hash = Hash(hash,".");
         hash = Hash(hash,functionName.c_str());
         //printf("%s.%s -> %08x\n", className, functionName.c_str(), hash );
         mBreakpoints[toCopy->mBreakpointCount].hash = hash;
         calcCombinedHash();
+#else
+        mBreakpoints[toCopy->mBreakpointCount].hash = 0;
+#endif
    }
 
    // Copies breakpoints from toCopy except for number
@@ -1392,9 +1417,12 @@ private:
               mBreakpoints[d++] = toCopy->mBreakpoints[s];
          }
       }
+#ifdef HXCPP_DEBUG_HASHES
       calcCombinedHash();
+#endif
    }
 
+#ifdef HXCPP_DEBUG_HASHES
    void calcCombinedHash()
    {
       int allFileLine = 0;
@@ -1410,6 +1438,7 @@ private:
       mNotInAnyClassFunc = ~allClassFunc;
       //printf("Combined mask -> %08x %08x\n", mNotInAnyFileLine, mNotInAnyClassFunc);
    }
+#endif
 
    ~Breakpoints()
    {
@@ -1434,12 +1463,20 @@ private:
 
    inline bool QuickRejectClassFunc(int inHash)
    {
+#ifdef HXCPP_DEBUG_HASHES
       return inHash & mNotInAnyClassFunc;
+#else
+      return false;
+#endif
    }
 
    inline bool QuickRejectFileLine(int inHash)
    {
+#ifdef HXCPP_DEBUG_HASHES
       return inHash & mNotInAnyFileLine;
+#else
+      return false;
+#endif
    }
 
     bool HasBreakpoint(int number) const
@@ -1506,8 +1543,10 @@ private:
 
     int mRefCount;
     int mBreakpointCount;
+#ifdef HXCPP_DEBUG_HASHES
     int mNotInAnyClassFunc;
     int mNotInAnyFileLine;
+#endif
     Breakpoint *mBreakpoints;
 
     static MyMutex gMutex;
@@ -1751,8 +1790,10 @@ void __hxcpp_dbg_threadCreatedOrTerminated(int threadNumber, bool created)
 
 Dynamic __hxcpp_dbg_checkedThrow(Dynamic toThrow)
 {
-    if (!hx::CallStack::CanBeCaught(toThrow))
-        hx::CriticalErrorHandler(HX_CSTRING("Uncatchable Throw"), true);
+    if (!hx::CallStack::CanBeCaught(toThrow)) {
+        hx::CriticalErrorHandler(HX_CSTRING("Uncatchable Throw: " +
+                                            toThrow->toString()), true);
+      }
 
     return hx::Throw(toThrow);
 }
@@ -1903,7 +1944,10 @@ static void CriticalErrorHandler(String inErr, bool allowFixup)
     if (allowFixup && (hx::g_eventNotificationHandler != null())) {
         if (hx::CallStack::BreakCriticalError(inErr)) {
             return;
-}
+        }
+        else {
+            hx::Throw(HX_CSTRING("Critical Error in the debugger thread"));
+        }
     }
 #endif
 
@@ -1938,10 +1982,21 @@ void CriticalError(const String &inErr)
     CriticalErrorHandler(inErr, false);
 }
 
-void NullReference(const char *type, bool allowFixup)
+EXPORT void NullReference(const char *type, bool allowFixup)
 {
-    CriticalErrorHandler(String("Null ") + String(type) + String(" Reference"),
-                         allowFixup);
+#ifdef HXCPP_DEBUGGER
+    if (allowFixup && (hx::g_eventNotificationHandler != null())) {
+        if (hx::CallStack::BreakCriticalError
+        (HX_CSTRING("Null ") + String(type) + HX_CSTRING(" Reference"))) {
+            return;
+        }
+        else {
+            hx::Throw(HX_CSTRING("Null pointer reference in the debugger thread"));
+        }
+    }
+#endif
+
+    __hxcpp_dbg_checkedThrow(HX_CSTRING("Null Object Reference"));
 }
 
 } // namespace

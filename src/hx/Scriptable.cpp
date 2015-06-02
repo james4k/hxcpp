@@ -11,6 +11,11 @@
 #define DBGLOG printf
 
 
+#ifdef HX_ANDROID
+  #define atof(x) strtod(x,0)
+#endif
+
+
 namespace hx
 {
 #if 0
@@ -595,6 +600,7 @@ public:
       }
    }
 
+#ifdef HXCPP_VISIT_ALLOCS
    void visitFields(unsigned char *inData, HX_VISIT_PARAMS)
    {
       for(int i=0;i<mFields.size();i++)
@@ -612,6 +618,7 @@ public:
          inData += field.mBytes;
       }
    }
+#endif
 
    int findVTableSlot(const std::string &inName)
    {
@@ -734,6 +741,7 @@ public:
    {
    }
 
+#ifdef HXCPP_VISIT_ALLOCS
    void __Visit(hx::VisitContext *__inCtx)
    {
       hx::Class_obj::__Visit(__inCtx);
@@ -742,6 +750,7 @@ public:
    void VisitStatics(hx::VisitContext *__inCtx)
    {
    }
+#endif
 
    Dynamic ConstructEmpty()
    {
@@ -1423,11 +1432,13 @@ void ScriptableMark(ScriptHandler *inHandler, unsigned char *inInstanceData, HX_
    inHandler->markFields(inInstanceData,HX_MARK_ARG);
 }
 
+#ifdef HXCPP_VISIT_ALLOCS
 void ScriptableVisit(ScriptHandler *inHandler, unsigned char **inInstanceDataPtr, HX_VISIT_PARAMS)
 {
    HX_VISIT_ARRAY(inInstanceDataPtr);
    inHandler->visitFields(*inInstanceDataPtr,HX_VISIT_ARG);
 }
+#endif
 
 bool ScriptableField(hx::Object *, const ::String &,bool inCallProp,Dynamic &outResult)
 {

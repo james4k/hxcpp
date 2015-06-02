@@ -495,35 +495,34 @@ static int hex(int inChar)
 
 String String::__URLDecode() const
 {
-   Array<unsigned char> bytes(0,length);
-   for(int i=0;i<length;i++)
-   {
-      int c = __s[i];
-      if (c>127)
-         bytes->push('?');
-      else if (c=='+')
-         bytes->push(' ');
-      else if (c=='%')
-      {
-         i++;
-         int h0 = __s[i];
-         if (h0!=0)
-         {
-            i++;
-            int h1 = __s[i];
-            bytes->push( (hex(h0)<<4) | hex(h1) );
-         }
-      }
-      else
-         bytes->push(c);
+    // Create the decoded string; the decoded form might have fewer than
+    // [length] characters, but it won't have more.  If it has fewer than
+    // [length], some memory will be wasted here, but on the assumption that
+    // most URLs have only a few '%NN' encodings in them, don't bother
+    // counting the number of characters in the resulting string first.
+    HX_CHAR *decoded = NewString(length), *d = decoded;
+
+    for (int i = 0; i < length; i++) {
+        int c = __s[i];
+        if (c > 127) {
+            *d++ = '?';
+        }
+        else if (c == '+') {
+            *d++ = ' ';
+        }
+        else if ((c == '%') && (i < (length - 2))) {
+            *d++ = ((hex(__s[i + 1]) << 4) | (hex(__s[i + 2])));
+            i += 2;
+        }
+        else {
+            *d++ = c;
+        }
    }
-   // utf8 -> unicode ...
-   int len = bytes->__length();
-   bytes->push(' ');
+
    #ifdef HX_UTF8_STRINGS
-   return String( bytes->GetBase(), len ).dup();
+   return String( decoded, (d - decoded) );
    #else
-   return String( GCStringDup(bytes->GetBase(),len,0), len );
+   return String( GCStringDup(decoded, (d - decoded), 0), (d - decoded) );
    #endif
 }
 
@@ -973,6 +972,12 @@ String &String::operator+=(String inRHS)
    return *this;
 }
 
+#ifdef HXCPP_VISIT_ALLOCS
+#define STRING_VISIT_FUNC \
+    void __Visit(hx::VisitContext *__inCtx) { HX_VISIT_STRING(mThis.__s); }
+#else
+#define STRING_VISIT_FUNC
+#endif
 
 #define DEFINE_STRING_FUNC(func,array_list,dynamic_arg_list,arg_list,ARG_C) \
 struct __String_##func : public hx::Object \
@@ -994,7 +999,7 @@ struct __String_##func : public hx::Object \
       return mThis.func(arg_list); return Dynamic(); \
    } \
 	void __Mark(hx::MarkContext *__inCtx) { HX_MARK_STRING(mThis.__s); } \
-	void __Visit(hx::VisitContext *__inCtx) { HX_VISIT_STRING(mThis.__s); } \
+	STRING_VISIT_FUNC \
 	void  __SetThis(Dynamic inThis) { mThis = inThis; } \
 }; \
 Dynamic String::func##_dyn()  { return new __String_##func(*this);  }
