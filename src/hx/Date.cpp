@@ -15,6 +15,12 @@
       #if _POSIX_VERSION >= 199309L
          #include <sys/time.h>
       #endif
+   #else
+      // TODO(james4k): localtime_s is an optional C11 extension that we can
+      // use to fill in for a missing localtime_r. only define these on
+      // the relevant platforms.
+      #define localtime_r localtime_s
+      #define gmtime_r gmtime_s
    #endif
 #endif
 
@@ -319,10 +325,12 @@ double __hxcpp_date_now()
 
    return (double)( (long) ((ularge.QuadPart - EPOCH) / 10000000L) ) +
           system_time.wMilliseconds*0.001;
-   #else
+   #elif _POSIX_VERSION >= 199309L
    struct timeval tv;
    gettimeofday(&tv, 0);
    return (tv.tv_sec + (((double) tv.tv_usec) / (1000 * 1000)));
+   #else
+   return __hxcpp_time_stamp();
    #endif
 }
 
@@ -346,7 +354,7 @@ double __hxcpp_timezone_offset(double inSeconds)
    struct tm localTime;
    __internal_localtime( inSeconds, &localTime);
 
-   #ifdef HX_WINDOWS
+   #if defined HX_WINDOWS || defined __SNC__
    struct tm gmTime;
    __internal_gmtime(inSeconds, &gmTime );
 

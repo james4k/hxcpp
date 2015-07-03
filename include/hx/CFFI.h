@@ -4,7 +4,9 @@
 #include "OS.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <memory.h>
+// TODO(james4k): confirm only string.h is needed on various platforms
+//#include <memory>
+#include <string.h>
 
 
 // --- Register functions (primitives) ----
