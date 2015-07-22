@@ -138,12 +138,10 @@ void Math_obj::__boot()
    Static(Math_obj::__mClass) = hx::RegisterClass(HX_CSTRING("Math"),TCanCast<Math_obj>,sMathFields,sNone, &__CreateEmpty,0 , 0 );
 
 	unsigned int t = (unsigned int)(HxTimestamp() * 1e6);
-#ifdef HX_WINDOWS
-   #ifdef HX_WINRT
+#if defined(HX_WINDOWS) && defined(HX_WINRT)
 	int pid = Windows::Security::Cryptography::CryptographicBuffer::GenerateRandomNumber();
-   #else
+#elif defined(HX_WINDOWS) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
 	int pid = _getpid();
-   #endif
 #elif defined(__unix__) || defined(__APPLE__)
 	int pid = getpid();
 #else

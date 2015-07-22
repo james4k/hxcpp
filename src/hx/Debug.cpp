@@ -1961,7 +1961,8 @@ static void CriticalErrorHandler(String inErr, bool allowFixup)
 
     DBGLOG("Critical Error: %s\n", inErr.__s);
 
-#if defined(HX_WINDOWS) && !defined(HX_WINRT)
+// TODO(james4k): do something backwards compatible with WINAPI_FAMILY. may need a HX_WIN32_DESKTOP
+#if defined(HX_WINDOWS) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
     MessageBoxA(0, inErr.__s, "Critial Error - program must terminate",
         MB_ICONEXCLAMATION|MB_OK);
 #endif

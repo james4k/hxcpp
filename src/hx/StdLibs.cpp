@@ -172,7 +172,7 @@ int __hxcpp_irand(int inMax)
 
 void __hxcpp_stdlibs_boot()
 {
-   #if defined(HX_WINDOWS) && !defined(HX_WINRT)
+   #if defined(HX_WINDOWS) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
    HMODULE kernel32 = LoadLibraryA("kernel32");
    if (kernel32)
    {
