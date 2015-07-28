@@ -354,7 +354,7 @@ double __hxcpp_timezone_offset(double inSeconds)
    struct tm localTime;
    __internal_localtime( inSeconds, &localTime);
 
-   #if defined HX_WINDOWS || defined __SNC__
+   #if defined HX_WINDOWS || defined __SNC__ || defined __ORBIS__
    struct tm gmTime;
    __internal_gmtime(inSeconds, &gmTime );
 
