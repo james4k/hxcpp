@@ -16,11 +16,12 @@
          #include <sys/time.h>
       #endif
    #else
+	  // TODO(james4k): confirm we don't need the below anymore
       // TODO(james4k): localtime_s is an optional C11 extension that we can
       // use to fill in for a missing localtime_r. only define these on
       // the relevant platforms.
-      #define localtime_r localtime_s
-      #define gmtime_r gmtime_s
+      //#define localtime_r localtime_s
+      //#define gmtime_r gmtime_s
    #endif
 #endif
 
@@ -36,6 +37,10 @@
 
 
 //#include <hxMacros.h>
+
+#if _POSIX_VERSION >= 1
+#define HX_USE_TIME_R
+#endif
 
 static double t0 = 0;
 double __hxcpp_time_stamp()
@@ -96,7 +101,7 @@ double __hxcpp_time_stamp()
 void __internal_localtime(double inSeconds, struct tm* time)
 {
    time_t t = (time_t) inSeconds;
-   #ifdef HX_WINDOWS
+   #ifndef HX_USE_TIME_R
    struct tm *result = localtime(&t);
    if (result)
       *time = *result;
@@ -113,7 +118,7 @@ void __internal_localtime(double inSeconds, struct tm* time)
 void __internal_gmtime(double inSeconds, struct tm* time)
 {
    time_t t = (time_t) inSeconds;
-   #ifdef HX_WINDOWS
+   #ifndef HX_USE_TIME_R
    *time = *gmtime(&t);
    #else
    gmtime_r(&t, time);
