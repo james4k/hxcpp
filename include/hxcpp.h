@@ -216,6 +216,8 @@ class MarkContext;
 class VisitContext
 {
 public:
+   virtual void setThisObject(hx::Object *inThis) {}
+   virtual void setName(const char *inName) {}
    virtual void visitObject(hx::Object **ioPtr)=0;
    virtual void visitAlloc(void **ioPtr)=0;
 };

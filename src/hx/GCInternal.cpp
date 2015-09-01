@@ -671,6 +671,7 @@ union BlockData
                   if ( (*(unsigned int *)(row+pos)) & IMMIX_ALLOC_IS_OBJECT )
                   {
                      hx::Object *obj = (hx::Object *)(row+pos+4);
+                     inCtx->setThisObject(obj);
                      obj->__Visit(inCtx);
                   }
                }
@@ -2214,6 +2215,8 @@ public:
       for(int i=0;i<mAllBlocks.size();i++)
          mAllBlocks[i]->VisitBlock(inCtx);
 
+      inCtx->setThisObject(NULL);
+
       hx::VisitClassStatics(inCtx);
 
       for(hx::RootSet::iterator i = hx::sgRootSet.begin(); i!=hx::sgRootSet.end(); ++i)
@@ -2529,6 +2532,77 @@ public:
       GCLOG("Collect time %.2f  %.2f/%.2f/%.2f/%.2f\n", (t4-t0)*1000,
               (t1-t0)*1000, (t2-t1)*1000, (t3-t2)*1000, (t4-t3)*1000 );
       #endif
+
+#ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+      class ObjectPrinter : public hx::VisitContext
+      {
+         GlobalAllocator *mAlloc;
+         FILE *mOutput;
+         hx::Object *mThis;
+         const char *mName;
+      public:
+         ObjectPrinter(GlobalAllocator *inAlloc, FILE *inOutput)
+            : mAlloc(inAlloc), mOutput(inOutput), mThis(NULL), mName(NULL) {}
+
+         void setThisObject(hx::Object *inThis)
+         {
+            mThis = inThis;
+         }
+
+         void setName(const char *inName)
+         {
+            mName = inName;
+         }
+
+         void visitObject(hx::Object **ioPtr)
+         {
+            hx::Object *obj = *ioPtr;
+            unsigned int header = ((unsigned int *)(obj))[-1];
+            unsigned int size = (header & ( IMMIX_ALLOC_SMALL_OBJ | IMMIX_ALLOC_MEDIUM_OBJ)) ?
+               (header & IMMIX_ALLOC_SIZE_MASK) :  ((unsigned int *)(obj))[-2];
+
+            switch (obj->__GetType ()) {
+               case vtArray:
+                  {
+                     fprintf (mOutput, "%p,%p,%u,%s,\n", mThis, obj, size, "Array");
+                     break;
+                  }
+               case vtClass:
+                  {
+                     const char *className = obj->__GetClass ()->mName.c_str ();
+                     const char *fieldName = mName ? mName : "";
+                     fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
+                     break;
+                  }
+               default:
+                  break;
+            }
+
+         }
+
+         void visitAlloc(void **ioPtr)
+         {
+            void *ptr = *ioPtr;
+            unsigned int header = ((unsigned int *)(ptr))[-1];
+            unsigned int size = (header & ( IMMIX_ALLOC_SMALL_OBJ | IMMIX_ALLOC_MEDIUM_OBJ)) ?
+               (header & IMMIX_ALLOC_SIZE_MASK) :  ((unsigned int *)(ptr))[-2];
+            fprintf(mOutput, "%p,%p,%u,%s,\n", mThis, ptr, size, "<raw_alloc>");
+         }
+
+      };
+
+      {
+         FILE *f = fopen("object_graph.csv", "wb");
+         if (f == NULL) {
+            printf("Failed to open object_graph.csv");
+         } else {
+            fprintf(f, "this_addr,member_addr,member_size,member_class_name,member_field_name\n");
+            ObjectPrinter printer(this, f);
+            VisitAll(&printer);
+            fclose(f);
+         }
+      }
+#endif
 
       return want_more;
    }
