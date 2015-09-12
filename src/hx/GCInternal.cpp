@@ -2224,15 +2224,23 @@ public:
          hx::Object **obj = &**i;
          if (*obj)
          {
+			inCtx->setName("<gc_root>");
             inCtx->visitObject(obj);
+			inCtx->setName(NULL);
+			inCtx->setThisObject(*obj);
             (*obj)->__Visit(inCtx);
+			inCtx->setThisObject(NULL);
          }
       }
       for(int i=0;i<hx::sZombieList.size();i++)
       {
+		 inCtx->setName("<zombie>");
          inCtx->visitObject( &hx::sZombieList[i] );
+         inCtx->setName(NULL);
 
+         inCtx->setThisObject(hx::sZombieList[i]);
          hx::sZombieList[i]->__Visit(inCtx);
+         inCtx->setThisObject(NULL);
       }
 
    }
@@ -2561,22 +2569,53 @@ public:
             unsigned int size = (header & ( IMMIX_ALLOC_SMALL_OBJ | IMMIX_ALLOC_MEDIUM_OBJ)) ?
                (header & IMMIX_ALLOC_SIZE_MASK) :  ((unsigned int *)(obj))[-2];
 
-            switch (obj->__GetType ()) {
-               case vtArray:
-                  {
-                     fprintf (mOutput, "%p,%p,%u,%s,\n", mThis, obj, size, "Array");
-                     break;
-                  }
-               case vtClass:
-                  {
-                     const char *className = obj->__GetClass ()->mName.c_str ();
-                     const char *fieldName = mName ? mName : "";
-                     fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
-                     break;
-                  }
-               default:
-                  break;
-            }
+			if ((header & HX_GC_CONST_ALLOC_BIT) != 0) {
+				// TODO(james4k): account for alignment
+				switch (obj->__GetType ()) {
+				case vtBool:
+					size = sizeof(hx::Object) + sizeof(bool);
+					break;
+				case vtInt:
+					size = sizeof(hx::Object) + sizeof(int);
+					break;
+				case vtFloat:
+					size = sizeof(hx::Object) + sizeof(double);
+					break;
+				default:
+					size = 0;
+					break;
+				}
+			}
+
+			switch (obj->__GetType ()) {
+			   case vtArray:
+				  {
+					// TODO(james4k): type param?
+					 const char *className = "Array";
+					 const char *fieldName = mName ? mName : "";
+					 fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
+					 break;
+				  }
+			   case vtClass:
+			   case vtObject:
+			   case vtEnum:
+			   case vtInt:
+			   case vtNull:
+			   case vtFloat:
+			   case vtBool:
+			   case vtString:
+			   case vtFunction:
+			   case vtAbstractBase:
+				  {
+					// TODO(james4k): type params?
+					 const char *className = obj->__GetClass ()->mName.c_str ();
+					 const char *fieldName = mName ? mName : "";
+					 fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
+					 break;
+				  }
+			   default:
+			      break;
+			}
 
          }
 
