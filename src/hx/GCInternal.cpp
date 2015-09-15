@@ -2607,7 +2607,8 @@ public:
 			   case vtFunction:
 				  {
 					// TODO(james4k): type params?
-					 const char *className = obj->__GetClass ()->mName.c_str ();
+					  hx::Class classPtr = obj->__GetClass();
+					 const char *className = (classPtr.GetPtr() != NULL) ? classPtr->mName.c_str() : "NULL";
 					 const char *fieldName = mName ? mName : "";
 					 fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
 					 break;
