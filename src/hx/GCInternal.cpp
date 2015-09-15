@@ -2613,14 +2613,15 @@ public:
 					 fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
 					 break;
 				  }
-			   case vtAbstractBase:
-				  {
-					  int abstractType = obj->__GetType();
-					 const char *fieldName = mName ? mName : "";
-					 fprintf (mOutput, "%p,%p,%u,Abstract(%d),%s\n", mThis, obj, size, abstractType, fieldName);
-					 break;
-				  }
 			   default:
+				  {
+					  if (obj->__GetType() >= vtAbstractBase)
+					  {
+						  int abstractType = obj->__GetType();
+						 const char *fieldName = mName ? mName : "";
+						 fprintf (mOutput, "%p,%p,%u,Abstract(%d),%s\n", mThis, obj, size, abstractType, fieldName);
+					  }
+				  }
 			      break;
 			}
 
