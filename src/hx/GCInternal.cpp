@@ -1785,7 +1785,7 @@ public:
             if (gid<0)
               gid = gAllocGroups.next();
 
-            char *chunk = (char *)HxAlloc( 1<<(IMMIX_BLOCK_GROUP_BITS + IMMIX_BLOCK_BITS) );
+            char *chunk = (char *)HxAllocGCBlock( 1<<(IMMIX_BLOCK_GROUP_BITS + IMMIX_BLOCK_BITS) );
             // We really really have to try collect!
             if (chunk==0 && !inTryCollect)
             {
