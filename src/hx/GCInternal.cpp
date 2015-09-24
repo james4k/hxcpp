@@ -2520,27 +2520,6 @@ public:
       mAllBlocksCount   = mAllBlocks.size();
       mCurrentRowsInUse = mRowsInUse;
 
-
-      if (sMultiThreadMode)
-      {
-         for(int i=0;i<mLocalAllocs.size();i++)
-         if (mLocalAllocs[i]!=this_local)
-            ReleaseFromSafe(mLocalAllocs[i]);
-
-         hx::gPauseForCollect = false;
-         gThreadStateChangeLock->Unlock();
-      }
-
-      #ifdef SHOW_MEM_EVENTS
-      GCLOG("Collect Done\n");
-      #endif
-
-      #ifdef PROFILE_COLLECT
-      STAMP(t4)
-      GCLOG("Collect time %.2f  %.2f/%.2f/%.2f/%.2f\n", (t4-t0)*1000,
-              (t1-t0)*1000, (t2-t1)*1000, (t3-t2)*1000, (t4-t3)*1000 );
-      #endif
-
 #ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
       class ObjectPrinter : public hx::VisitContext
       {
@@ -2650,6 +2629,26 @@ public:
          }
       }
 #endif
+
+      if (sMultiThreadMode)
+      {
+         for(int i=0;i<mLocalAllocs.size();i++)
+         if (mLocalAllocs[i]!=this_local)
+            ReleaseFromSafe(mLocalAllocs[i]);
+
+         hx::gPauseForCollect = false;
+         gThreadStateChangeLock->Unlock();
+      }
+
+      #ifdef SHOW_MEM_EVENTS
+      GCLOG("Collect Done\n");
+      #endif
+
+      #ifdef PROFILE_COLLECT
+      STAMP(t4)
+      GCLOG("Collect time %.2f  %.2f/%.2f/%.2f/%.2f\n", (t4-t0)*1000,
+              (t1-t0)*1000, (t2-t1)*1000, (t3-t2)*1000, (t4-t3)*1000 );
+      #endif
 
       return want_more;
    }
