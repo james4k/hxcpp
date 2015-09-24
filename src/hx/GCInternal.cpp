@@ -2617,7 +2617,11 @@ public:
 
       };
 
+	  // TODO(james4k): configurable options for when to dump
+	  static size_t memUsageToDump = 0;
+	  if (MemUsage() > memUsageToDump)
       {
+         memUsageToDump = MemUsage();
          FILE *f = fopen("object_graph.csv", "wb");
          if (f == NULL) {
             printf("Failed to open object_graph.csv");
