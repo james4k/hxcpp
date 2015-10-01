@@ -32,6 +32,12 @@
   #include <cstdlib>
 #endif
 
+#ifdef __OBJC__
+#ifdef HXCPP_OBJC
+  #import <Foundation/Foundation.h>
+#endif
+#endif
+
 
 #include <string.h>
 
@@ -263,6 +269,7 @@ typedef bool PropertyAccess;
 #include <hx/Class.h>
 #include "Enum.h"
 #include <hx/Interface.h>
+#include <hx/Telemetry.h>
 #include <hx/StdLibs.h>
 #include <cpp/Pointer.h>
 #include <hx/Operators.h>

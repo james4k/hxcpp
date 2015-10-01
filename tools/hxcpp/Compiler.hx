@@ -50,6 +50,11 @@ class Compiler
       mCached = false;
    }
 
+   public function objToAbsolute()
+   {
+      mObjDir = Path.normalize( PathManager.combine( Sys.getCwd(), mObjDir ) );
+   }
+
    function addIdentity(ext:String,ioArgs:Array<String>)
    {
       if (mAddGCCIdentity)
@@ -117,16 +122,16 @@ class Compiler
          {
             var md5 = Md5.encode(contents + args.join(" ") +
                 inFile.mGroup.mDependHash + mCompilerVersion + inFile.mDependHash );
-            cacheName = BuildTool.compileCache + "/" + md5;
+            cacheName = CompileCache.getCacheName(md5);
             if (FileSystem.exists(cacheName))
             {
                sys.io.File.copy(cacheName, obj_name);
-               Log.info("use cache for " + obj_name + "(" + md5 + ")" );
+               Log.info(" use cache for " + obj_name );
                found = true;
             }
             else
             {
-               Log.info("", " not in cache " + cacheName);
+               // Log.info("", " not in cache " + cacheName);
             }
          }
          else
@@ -179,15 +184,26 @@ class Compiler
 
    public function createCompilerVersion(inGroup:FileGroup)
    {
-      if (mGetCompilerVersion!=null && mCompilerVersion==null)
+      if ( mCompilerVersion==null)
       {
-         var exe = mGetCompilerVersion;
-         var args = new Array<String>();
- 
-         var versionString = ProcessManager.readStderr(exe,args).join(" ");
-         Log.info("", "--- Compiler version ---");
-         Log.info("", versionString);
-         Log.info("", "------------------------");
+         var versionString = "";
+         var command = "";
+
+         if (mGetCompilerVersion==null)
+         {
+            command = mExe + " --version";
+            versionString = ProcessManager.readStdout(mExe,["--version"]).join(" ");
+         }
+         else
+         {
+            command = mGetCompilerVersion;
+            versionString = ProcessManager.readStderr(mGetCompilerVersion,[]).join(" ");
+         }
+
+         if (versionString=="" || versionString==null)
+            Log.error("Could not deduce compiler version with " + command);
+
+         Log.info("", "Compiler version: " +  versionString);
 
          mCompilerVersion = Md5.encode(versionString);
          mCached = true;
@@ -255,6 +271,7 @@ class Compiler
          Log.error("Could not create PCH");
          //throw "Error creating pch: " + result + " - build cancelled";
       }
+
    }
 
    public function setPCH(inPCH:String)

@@ -1,20 +1,3 @@
-/* ************************************************************************ */
-/*																			*/
-/*  Neko Standard Library													*/
-/*  Copyright (c)2005 Motion-Twin											*/
-/*																			*/
-/* This library is free software; you can redistribute it and/or			*/
-/* modify it under the terms of the GNU Lesser General Public				*/
-/* License as published by the Free Software Foundation; either				*/
-/* version 2.1 of the License, or (at your option) any later version.		*/
-/*																			*/
-/* This library is distributed in the hope that it will be useful,			*/
-/* but WITHOUT ANY WARRANTY; without even the implied warranty of			*/
-/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU		*/
-/* Lesser General Public License or the LICENSE file for more details.		*/
-/*																			*/
-/* ************************************************************************ */
-
 #if !defined(HX_WINRT) && !defined(EPPC)
 
 #include <string.h>
@@ -148,7 +131,8 @@ static value socket_new( value udp ) {
 	if( s == INVALID_SOCKET )
 		return alloc_null();
 #	ifdef NEKO_MAC
-	setsockopt(s,SOL_SOCKET,SO_NOSIGPIPE,NULL,0);
+	int set = 1;
+	setsockopt(s,SOL_SOCKET,SO_NOSIGPIPE,(void *)&set, sizeof(int));
 #	endif
 #	ifdef NEKO_POSIX
 	// we don't want sockets to be inherited in case of exec
@@ -342,7 +326,7 @@ static value host_resolve( value host ) {
 	ip = inet_addr(hostName);
 	if( ip == INADDR_NONE ) {
 		struct hostent *h;
-#	if defined(NEKO_WINDOWS) || defined(NEKO_MAC) || defined(BLACKBERRY)
+#	if defined(NEKO_WINDOWS) || defined(NEKO_MAC) || defined(BLACKBERRY) || defined(EMSCRIPTEN)
 		h = gethostbyname(hostName);
 #	else
 		struct hostent hbase;
@@ -381,7 +365,7 @@ static value host_reverse( value host ) {
 	val_check(host,int);
 	ip = val_int(host);
    gc_enter_blocking();
-#	if defined(NEKO_WINDOWS) || defined(NEKO_MAC) || defined(ANDROID) || defined(BLACKBERRY)
+#	if defined(NEKO_WINDOWS) || defined(NEKO_MAC) || defined(ANDROID) || defined(BLACKBERRY) || defined(EMSCRIPTEN)
 	h = gethostbyaddr((char *)&ip,4,AF_INET);
 #	else
 	struct hostent htmp;

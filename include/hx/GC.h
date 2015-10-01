@@ -36,6 +36,10 @@ void  __hxcpp_gc_do_not_kill(Dynamic inObj);
 void  __hxcpp_set_finalizer(Dynamic inObj, void *inFunction);
 hx::Object *__hxcpp_get_next_zombie();
 
+#ifdef HXCPP_TELEMETRY
+void __hxcpp_set_hxt_finalizer(void* inObj, void *inFunc);
+#endif
+
 hx::Object *__hxcpp_weak_ref_create(Dynamic inObject);
 hx::Object *__hxcpp_weak_ref_get(Dynamic inRef);
 
@@ -53,12 +57,77 @@ bool IsWeakRefValid(hx::Object *inPtr);
 
 void MarkConservative(int *inBottom, int *inTop,hx::MarkContext *__inCtx);
 
+#if (defined(HX_WINDOWS) || defined(HX_MACOS)) && !defined(HXCPP_M64)
+#define HXCPP_CAPTURE_x86
+#endif
+
+#if defined(HX_MACOS) && defined(HXCPP_M64)
+#define HXCPP_CAPTURE_x64
+#endif
+
+
+
+#ifdef HXCPP_CAPTURE_x86
+
+struct RegisterCaptureBuffer
+{
+   void *ebx;
+   void *edi;
+   void *esi;
+};
+
+void CaptureX86(RegisterCaptureBuffer &outBuffer);
+
+#define CAPTURE_REGS \
+   hx::CaptureX86(mRegisterBuf);
+
+#define CAPTURE_REG_START (int *)(&mRegisterBuf)
+#define CAPTURE_REG_END (int *)(&mRegisterBuf+1)
+
+#elif defined(HXCPP_CAPTURE_x64)
+
+
+struct RegisterCaptureBuffer
+{
+   void *rbx;
+   void *rbp;
+   void *r12;
+   void *r13;
+   void *r14;
+   void *r15;
+};
+
+void CaptureX64(RegisterCaptureBuffer &outBuffer);
+
+#define CAPTURE_REGS \
+   hx::CaptureX64(mRegisterBuf);
+
+#define CAPTURE_REG_START (int *)(&mRegisterBuf)
+#define CAPTURE_REG_END (int *)(&mRegisterBuf+1)
+
+
+#else
+
+
+
 class RegisterCapture
 {
 public:
 	virtual int Capture(int *inTopOfStack,int **inBuf,int &outSize,int inMaxSize,int *inDummy);
    static RegisterCapture *Instance();
 };
+
+typedef int *RegisterCaptureBuffer[20];
+
+#define CAPTURE_REGS \
+   hx::RegisterCapture::Instance()->Capture(mTopOfStack, \
+                mRegisterBuf,mRegisterBufSize,20,mBottomOfStack); \
+
+#define CAPTURE_REG_START (int *)mRegisterBuf
+#define CAPTURE_REG_END (int *)(mRegisterBuf+mRegisterBufSize)
+
+#endif
+
 
 #ifdef HXCPP_MULTI_THREADED
 #define __SAFE_POINT if (hx::gPauseForCollect) hx::PauseForCollect();

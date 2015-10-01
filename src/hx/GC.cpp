@@ -12,6 +12,9 @@
 
 #endif
 
+#ifdef HXCPP_TELEMETRY
+extern void __hxt_new_string(void* result, int size);
+#endif
 
 
 void *String::operator new( size_t inSize )
@@ -38,9 +41,6 @@ void __hxcpp_gc_compact()
    }
 }
 
-
-
-
 namespace hx
 {
 
@@ -52,12 +52,13 @@ void GCAddFinalizer(hx::Object *v, finalizer f)
    }
 }
 
-
-
 HX_CHAR *NewString(int inLen)
 {
    HX_CHAR *result =  (HX_CHAR *)hx::InternalNew( (inLen+1)*sizeof(HX_CHAR), false );
    result[inLen] = '\0';
+#ifdef HXCPP_TELEMETRY
+   __hxt_new_string(result, inLen+1);
+#endif
    return result;
 
 }
@@ -89,6 +90,66 @@ void *GCRealloc(void *inData,int inSize)
    return InternalRealloc(inData,inSize);
 }
 
+#ifdef HXCPP_CAPTURE_x86 // {
+
+void CaptureX86(RegisterCaptureBuffer &outBuffer)
+{
+   void *regEsi;
+   void *regEdi;
+   void *regEbx;
+   #ifdef __GNUC__
+   asm ("mov %%esi, %0\n\t" : "=r" (regEsi) );
+   asm ("mov %%edi, %0\n\t" : "=r" (regEdi) );
+   asm ("mov %%ebx, %0\n\t" : "=r" (regEbx) );
+   #else
+   __asm {
+      mov regEsi, esi
+      mov regEdi, edi
+      mov regEbx, ebx
+   }
+   #endif
+   outBuffer.esi = regEsi;
+   outBuffer.edi = regEdi;
+   outBuffer.ebx = regEbx;
+}
+
+#elif defined(HXCPP_CAPTURE_x64) // {
+
+void CaptureX64(RegisterCaptureBuffer &outBuffer)
+{
+   void *regBx;
+   void *regBp;
+   void *reg12;
+   void *reg13;
+   void *reg14;
+   void *reg15;
+   #ifdef __GNUC__
+   asm ("movq %%rbx, %0\n\t" : "=r" (regBx) );
+   asm ("movq %%rbp, %0\n\t" : "=r" (regBp) );
+   asm ("movq %%r12, %0\n\t" : "=r" (reg12) );
+   asm ("movq %%r13, %0\n\t" : "=r" (reg13) );
+   asm ("movq %%r14, %0\n\t" : "=r" (reg14) );
+   asm ("movq %%r15, %0\n\t" : "=r" (reg15) );
+   #else
+   __asm {
+      mov regBx, rbx
+      mov regBp, rbp
+      mov reg12, r12
+      mov reg13, r13
+      mov reg14, r14
+      mov reg15, r15
+   }
+   #endif
+   outBuffer.rbx = regBx;
+   outBuffer.rbp = regBp;
+   outBuffer.r12 = reg12;
+   outBuffer.r13 = reg13;
+   outBuffer.r14 = reg14;
+   outBuffer.r15 = reg15;
+}
+
+
+#else // }  {
 
 // Put this function here so we can be reasonablly sure that "this" register and
 // the 4 registers that may be used to pass args are on the stack.
@@ -111,6 +172,8 @@ RegisterCapture *RegisterCapture::Instance()
 		gRegisterCaptureInstance = new RegisterCapture();
 	return gRegisterCaptureInstance;
 }
+
+#endif // }
 
 
 } // end namespace hx

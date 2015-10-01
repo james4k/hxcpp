@@ -236,6 +236,8 @@ public:
 
 
    inline T *operator->() { return ptr; }
+   
+   inline operator T &() { return *ptr; }
 
 };
 
@@ -269,6 +271,7 @@ public:
    inline Dynamic operator=( Dynamic &inValue )
    {
       call = inValue==null() ? 0 : (T*) inValue->__GetHandle();
+      return inValue;
    }
    inline Dynamic operator=( null &inValue ) { call=0; return inValue; }
    inline bool operator==( const null &inValue ) const { return call==0; }
