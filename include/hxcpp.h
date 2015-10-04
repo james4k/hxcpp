@@ -72,8 +72,10 @@
 #ifdef _MSC_VER
   #if defined(HXCPP_DLL_IMPORT)
      #define HXCPP_EXTERN_CLASS_ATTRIBUTES __declspec(dllimport)
-  #else
+  #elif defined (HXCPP_DLL_EXPORT)
      #define HXCPP_EXTERN_CLASS_ATTRIBUTES __declspec(dllexport)
+  #else
+     #define HXCPP_EXTERN_CLASS_ATTRIBUTES
   #endif
 #else
   #if defined(HXCPP_DLL_EXPORT)
@@ -85,16 +87,6 @@
 
 typedef char HX_CHAR;
 
-
-#define HX_STRINGI(s,len) ::String( (const HX_CHAR *)(("\xff\xff\xff\xff" s)) + 4 ,len)
-
-#define HX_STRI(s) HX_STRINGI(s,sizeof(s)/sizeof(HX_CHAR)-1)
-
-#define HX_CSTRING(x) HX_STRI(x)
-
-#define HX_CSTRING2(wide,len,utf8) HX_STRI(utf8)
-
-#define HX_FIELD_EQ(name,field) !::memcmp(name.__s, field, sizeof(field)/sizeof(char))
 
 
 #if (defined(HXCPP_DEBUG) || defined(HXCPP_DEBUGGER)) && !defined HXCPP_CHECK_POINTER
@@ -131,12 +123,28 @@ typedef char HX_CHAR;
   #endif
 #endif
 
+// HX_HCSTRING is for constant strings with built-in hashes
+//     HX_GC_CONST_ALLOC_BIT
+// HX_CSTRING is for constant strings without built-in hashes
+//     HX_GC_CONST_ALLOC_BIT | HX_GC_NO_STRING_HASH
 
 #ifdef HXCPP_BIG_ENDIAN
 #define HX_HCSTRING(s,h0,h1,h2,h3) ::String( (const HX_CHAR *)((h3 h2 h1 h0 "\x80\x00\x00\x00" s )) + 8 , sizeof(s)/sizeof(HX_CHAR)-1)
+#define HX_STRINGI(s,len) ::String( (const HX_CHAR *)(("\xc0\x00\x00\x00" s)) + 4 ,len)
 #else
+
 #define HX_HCSTRING(s,h0,h1,h2,h3) ::String( (const HX_CHAR *)((h0 h1 h2 h3 "\x00\x00\x00\x80" s )) + 8 , sizeof(s)/sizeof(HX_CHAR)-1)
+
+#define HX_STRINGI(s,len) ::String( (const HX_CHAR *)(("\x00\x00\x0\xc0" s)) + 4 ,len)
 #endif
+
+
+
+#define HX_STRI(s) HX_STRINGI(s,sizeof(s)/sizeof(HX_CHAR)-1)
+#define HX_CSTRING(x) HX_STRI(x)
+#define HX_CSTRING2(wide,len,utf8) HX_STRI(utf8)
+#define HX_FIELD_EQ(name,field) !::memcmp(name.__s, field, sizeof(field)/sizeof(char))
+
 
 
 #pragma warning(disable:4251)
@@ -227,7 +235,6 @@ public:
 };
 
 
-
 #if (HXCPP_API_LEVEL >= 313)
 enum PropertyAccessMode
 {
@@ -262,7 +269,7 @@ typedef bool PropertyAccess;
 #include "Dynamic.h"
 #include <cpp/CppInt32__.h>
 // This needs to "see" other declarations ...
-#include <hx/GCTemplates.h>
+#include <hx/GcTypeInference.h>
 #include <hx/FieldRef.h>
 #include <hx/Anon.h>
 #include "Array.h"

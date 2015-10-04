@@ -5,7 +5,7 @@
 #ifdef HX_WINDOWS
    #include <windows.h>
    // TODO(james4k): do certain versions of windows/SDKs need this?
-   //#include <Shlobj.h>
+   //#include <shlobj.h>
 #else
    #include <stdint.h>
    // TODO(james4k): confirm these ifdef changes don't break other platforms

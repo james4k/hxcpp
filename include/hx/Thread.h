@@ -137,27 +137,6 @@ struct MyMutex
    CRITICAL_SECTION mCritSec;
 };
 
-#ifndef HX_WINRT
-template<typename DATA>
-struct TLSData
-{
-   TLSData()
-   {
-      mSlot = TlsAlloc();
-      TlsSetValue(mSlot,0);
-   }
-   inline DATA *operator=(DATA *inData)
-   {
-      TlsSetValue(mSlot,inData);
-      return inData;
-   }
-   inline operator DATA *() { return (DATA *)TlsGetValue(mSlot); }
-
-   int mSlot;
-};
-
-#endif
-
 
 #define THREAD_FUNC_TYPE unsigned int WINAPI
 #define THREAD_FUNC_RET return 0;
@@ -233,19 +212,6 @@ inline bool HxCreateThread(void *(*func)(void *), void *param)
 
 
 
-#ifdef HX_WINRT
-
-#define DECLARE_TLS_DATA(TYPE,NAME) \
-   __declspec(thread) TYPE * NAME = nullptr;
-
-#else
-
-#define DECLARE_TLS_DATA(TYPE,NAME) \
-   TLSData<TYPE> NAME;
-
-#endif
-
-
 
 template<typename LOCKABLE>
 struct TAutoLock
@@ -299,32 +265,6 @@ struct MySemaphore
 };
 
 #else
-
-
-template<typename DATA>
-struct TLSData
-{
-   TLSData()
-   {
-      pthread_key_create(&mSlot, 0);
-   }
-   DATA *Get()
-   {
-      return (DATA *)pthread_getspecific(mSlot);
-   }
-   void Set(DATA *inData)
-   {
-      pthread_setspecific(mSlot,inData);
-   }
-   inline DATA *operator=(DATA *inData)
-   {
-      pthread_setspecific(mSlot,inData);
-      return inData;
-   }
-   inline operator DATA *() { return (DATA *)pthread_getspecific(mSlot); }
-
-   pthread_key_t mSlot;
-};
 
 
 #define HX_THREAD_SEMAPHORE_LOCKABLE

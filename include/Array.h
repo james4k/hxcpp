@@ -226,11 +226,14 @@ public:
 
    inline Dynamic __get(int inIndex) const { return __GetItem(inIndex); }
 
+   // Plain old data element size - or 0 if not plain-old-data
+   int getPodSize() const { return mPodSize; }
 
    mutable int length;
 protected:
    mutable int mAlloc;
    mutable char  *mBase;
+   int mPodSize;
 };
 
 } // end namespace hx for ArrayBase
@@ -325,7 +328,7 @@ public:
    }
    inline ELEM_ __get(int inIndex) const
    {
-      if (inIndex>=(int)length || inIndex<0) return null();
+      if ((unsigned int)inIndex>=(unsigned int)length ) return null();
       return * (ELEM_ *)(mBase + inIndex*sizeof(ELEM_));
    }
 
@@ -350,13 +353,12 @@ public:
 
    void __Mark(hx::MarkContext *__inCtx)
    {
-      if (hx::ContainsPointers<ELEM_>())
+      if (mAlloc>0) hx::MarkAlloc((void *)mBase, __inCtx );
+      if (length && hx::ContainsPointers<ELEM_>())
       {
          ELEM_ *ptr = (ELEM_ *)mBase;
-         for(int i=0;i<length;i++)
-            HX_MARK_MEMBER(ptr[i]);
+         HX_MARK_MEMBER_ARRAY(ptr,length);
       }
-      if (mAlloc>0) hx::MarkAlloc((void *)mBase, __inCtx );
    }
 
    #ifdef HXCPP_VISIT_ALLOCS

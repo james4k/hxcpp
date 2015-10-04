@@ -962,7 +962,7 @@ class BuildTool
 
       if (defines.exists("HXCPP_NO_COLOUR") || defines.exists("HXCPP_NO_COLOR"))
          Log.colorSupported = false;
-      Log.verbose = defines.exists("HXCPP_VERBOSE");
+      Log.verbose = defines.exists("HXCPP_VERBOSE") || defines.exists("TRAVIS_OS_NAME");
       exitOnThreadError = defines.exists("HXCPP_EXIT_ON_ERROR");
 
 
@@ -1059,22 +1059,22 @@ class BuildTool
          var arg = args[a];
          if (arg.substr(0,2)=="-D" || (~/^[a-zA-Z0-9_][a-zA-Z0-9_-]*=/).match(arg) )
          {
-            var val = arg.substr(0,2)=="-D" ? arg.substr(2) : arg;
-            var equals = val.indexOf("=");
+            var define = arg.substr(0,2)=="-D" ? arg.substr(2) : arg;
+            var equals = define.indexOf("=");
             if (equals>0)
             {
-               var name = val.substr(0,equals);
-               var value = val.substr(equals+1);
-               if (name=="destination")
+               var value = define.substr(equals+1);
+               define = define.substr(0,equals);
+               if (define=="destination")
                {
                   destination = value;
                }
                else
-                  defines.set(name,value);
+                  defines.set(define,value);
             }
             else
-               defines.set(val,"");
-            if (val=="verbose")
+               defines.set(define,"");
+            if (define=="verbose")
                Log.verbose = true;
          }
          else if (arg=="-debug")
@@ -1445,7 +1445,7 @@ class BuildTool
          var dev_path = defines.get("DEVELOPER_DIR") + "/Platforms/MacOSX.platform/Developer/SDKs/";
          if (FileSystem.exists(dev_path))
          {
-            var best="";
+            var best="0.0";
             var files = FileSystem.readDirectory(dev_path);
             var extract_version = ~/^MacOSX(.*).sdk$/;
             for(file in files)
@@ -1453,12 +1453,14 @@ class BuildTool
                if (extract_version.match(file))
                {
                   var ver = extract_version.matched(1);
-                  if (Std.parseFloat (ver)>Std.parseFloat (best))
+                  if (Std.parseFloat(ver) > Std.parseFloat(best))
                      best = ver;
                }
             }
-            if (best!="")
+            if (best!="0.0")
                defines.set("MACOSX_VER",best);
+            else
+               Log.v("Could not find MACOSX_VER!");
          }
       }
       
