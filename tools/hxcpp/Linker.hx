@@ -210,7 +210,10 @@ class Linker
             var fname = inCompiler.mObjDir + "/all_objs";
             var fout = sys.io.File.write(fname,false);
             for(obj in objs)
-               fout.writeString('"' + obj + '"\n');
+               // TODO(james4k): make this configurable
+               // suggestion from hugh: <fromfile value="@" needsQuotes="false" />
+               //fout.writeString('"' + obj + '"\n');
+               fout.writeString(obj + '\n');
             fout.close();
             args.push("@" + fname );
          }
