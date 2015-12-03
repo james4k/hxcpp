@@ -77,7 +77,11 @@ void CaptureX64(RegisterCaptureBuffer &outBuffer)
 
 #else // }  {
 
+}
+
 #include <string.h>
+
+namespace hx {
 
 // Put this function here so we can be reasonablly sure that "this" register and
 // the 4 registers that may be used to pass args are on the stack.

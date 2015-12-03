@@ -44,7 +44,8 @@ int sgTargetFreeSpacePercentage  = 100;
 // Called internally before and GC operations
 void CommonInitAlloc()
 {
-   #if !defined(HX_WINRT) && !defined(__SNC__) && !defined(__ORBIS__)
+   #if !defined(HX_WINRT) && !defined(__SNC__) && !defined(__ORBIS__) && \
+       (defined(HX_WINDOWS) && (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP))
    const char *minimumWorking = getenv("HXCPP_MINIMUM_WORKING_MEMORY");
    if (minimumWorking)
    {

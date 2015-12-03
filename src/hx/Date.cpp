@@ -20,8 +20,8 @@
       // TODO(james4k): localtime_s is an optional C11 extension that we can
       // use to fill in for a missing localtime_r. only define these on
       // the relevant platforms.
-      //#define localtime_r localtime_s
-      //#define gmtime_r gmtime_s
+      #define localtime_r localtime_s
+      #define gmtime_r gmtime_s
    #endif
 #endif
 
