@@ -14,7 +14,7 @@ class Compiler
    public var mExe:String;
    public var mOutFlag:String;
    public var mObjDir:String;
-   public var mObjDirRelative:String;
+   public var mRelObjDir:String;
    public var mExt:String;
 
    public var mPCHExt:String;
@@ -51,13 +51,11 @@ class Compiler
       mCached = false;
    }
 
-   // TODO(james4k): doesn't seem like we need this, but not clear yet
    public function objToAbsolute()
    {
-      if (mObjDirRelative == null) {
-         mObjDirRelative = mObjDir;
-      }
-      //mObjDir = Path.normalize( PathManager.combine( Sys.getCwd(), mObjDirRelative ) );
+      if (mRelObjDir==null)
+         mRelObjDir = mObjDir;
+      mObjDir = Path.normalize( PathManager.combine( Sys.getCwd(), mRelObjDir ) );
    }
 
    function addIdentity(ext:String,ioArgs:Array<String>)

@@ -742,7 +742,7 @@ class BuildTool
                   target.mFlags.push( substitute(el.att.name) );
                   target.mFlags.push( substitute(el.att.value) );
                case "dir" : target.mDirs.push( substitute(el.att.name) );
-               case "outdir" : PathManager.combine( mCurrentIncludeFile, target.mOutputDir = substitute(el.att.name)+"/");
+               case "outdir" : target.mOutputDir = substitute(el.att.name)+"/";
                case "ext" : target.setExt( (substitute(el.att.value)) );
                case "builddir" : target.mBuildDir = substitute(el.att.name);
                case "files" :
@@ -1181,7 +1181,7 @@ class BuildTool
          if (defines.exists("simulator"))
             defines.set("appletvsim", "appletvsim");
          else if (!defines.exists ("appletvsim"))
-            defines.set("appletvosos", "appletvos");
+            defines.set("appletvos", "appletvos");
          defines.set("appletv", "appletv");
       }
  
@@ -1397,9 +1397,19 @@ class BuildTool
       else if ( (new EReg("linux","i")).match(os) )
       {
          set64(defines,m64);
-         defines.set("toolchain","linux");
-         defines.set("linux","linux");
-         defines.set("BINDIR", m64 ? "Linux64":"Linux");
+         // Cross-compile?
+         if(defines.exists("windows"))
+         {
+            defines.set("toolchain","mingw");
+            defines.set("xcompile","1");
+            defines.set("BINDIR", m64 ? "Windows64":"Windows");
+         }
+         else
+         {
+            defines.set("toolchain","linux");
+            defines.set("linux","linux");
+            defines.set("BINDIR", m64 ? "Linux64":"Linux");
+         }
       }
       else if ( (new EReg("mac","i")).match(os) )
       {

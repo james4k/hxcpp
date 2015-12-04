@@ -145,6 +145,7 @@ public:
    virtual Dynamic __pop() = 0;
    virtual Dynamic __push(const Dynamic &a0) = 0;
    virtual Dynamic __remove(const Dynamic &a0) = 0;
+   virtual Dynamic __removeAt(const Dynamic &a0) = 0;
    virtual Dynamic __indexOf(const Dynamic &a0,const Dynamic &a1) = 0;
    virtual Dynamic __lastIndexOf(const Dynamic &a0,const Dynamic &a1) = 0;
    virtual Dynamic __reverse() = 0;
@@ -173,6 +174,7 @@ public:
    Dynamic pop_dyn();
    Dynamic push_dyn();
    Dynamic remove_dyn();
+   Dynamic removeAt_dyn();
    Dynamic indexOf_dyn();
    Dynamic lastIndexOf_dyn();
    Dynamic reverse_dyn();
@@ -192,7 +194,17 @@ public:
    Dynamic zero_dyn();
    Dynamic memcmp_dyn();
 
-   void EnsureSize(int inLen) const;
+   void Realloc(int inLen) const;
+
+   inline void EnsureSize(int inLen) const
+   {
+      if (inLen>length)
+      {
+         if (inLen>mAlloc)
+            Realloc(inLen);
+         length = inLen;
+      }
+   }
 
    void RemoveElement(int inIndex);
 
@@ -344,6 +356,15 @@ public:
       return ArrayBase::Memcmp(inOther.GetPtr());
    }
 
+
+   inline void memcpy(int inStart, ELEM_ *inData, int inElements)
+   {
+      EnsureSize(inStart+inElements+1);
+      int s = GetElementSize();
+      ::memcpy(mBase + s*inStart, inData, s*inElements);
+   }
+
+
    inline void blit(int inDestElement,  Array<ELEM_> inSourceArray,
                     int inSourceElement, int inElementCount)
    {
@@ -369,7 +390,9 @@ public:
       {
          ELEM_ *ptr = (ELEM_ *)mBase;
          for(int i=0;i<length;i++)
+         {
             HX_VISIT_MEMBER(ptr[i]);
+         }
       }
    }
    #endif
@@ -428,6 +451,17 @@ public:
       }
       return false;
    }
+
+   NullType removeAt( int idx )
+   { 
+      if( idx < 0 ) idx += length; 
+      if (idx>=length || idx<0) return null(); 
+
+      ELEM_ e = __get(idx); 
+      RemoveElement(idx); 
+      return e; 
+   }
+
 
    int indexOf(ELEM_ inValue, Dynamic fromIndex = null())
    {
@@ -574,6 +608,7 @@ public:
    virtual Dynamic __pop() { return pop(); }
    virtual Dynamic __push(const Dynamic &a0) { return push(a0);}
    virtual Dynamic __remove(const Dynamic &a0) { return remove(a0); }
+   virtual Dynamic __removeAt(const Dynamic &a0) { return removeAt(a0); }
    virtual Dynamic __indexOf(const Dynamic &a0,const Dynamic &a1) { return indexOf(a0, a1); }
    virtual Dynamic __lastIndexOf(const Dynamic &a0,const Dynamic &a1) { return lastIndexOf(a0, a1); }
    virtual Dynamic __reverse() { reverse(); return null(); }
@@ -747,7 +782,7 @@ template<typename ELEM_>
 Array<ELEM_> Array_obj<ELEM_>::copy( )
 {
    Array_obj *result = new Array_obj((int)length,0);
-   memcpy(result->GetBase(),GetBase(),length*sizeof(ELEM_));
+   ::memcpy(result->GetBase(),GetBase(),length*sizeof(ELEM_));
    return result;
 }
 

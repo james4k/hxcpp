@@ -35,45 +35,33 @@ ArrayBase::ArrayBase(int inSize,int inReserve,int inElementSize,bool inAtomic)
 }
 
 
-void ArrayBase::EnsureSize(int inSize) const
+void ArrayBase::Realloc(int inSize) const
 {
-   int s = inSize;
-   if (s>length)
+   // Try to detect "push" case vs resizing to big array size explicitly by looking at gap
+   int newAlloc = inSize<=mAlloc + 64 ? inSize*3/2 + 10 : inSize;
+   //int newAlloc = inSize*3/2 + 10;
+   int bytes = newAlloc * GetElementSize();
+
+   if (mBase)
    {
-      if (s>mAlloc)
+      bool wasUnamanaged = mAlloc<0;
+      if (wasUnamanaged)
       {
-         bool wasUnamanaged = mAlloc<0;
-         int newAlloc = s*3/2 + 10;
-         int bytes = newAlloc * GetElementSize();
-         if (mBase)
-         {
-            if (wasUnamanaged)
-            {
-               char *base=(char *)(AllocAtomic() ? hx::NewGCPrivate(0,bytes) : hx::NewGCBytes(0,bytes));
-               memcpy(base,mBase,length*GetElementSize());
-               mBase = base;
-            }
-            else
-               mBase = (char *)hx::InternalRealloc(mBase, bytes );
-         }
-         else if (AllocAtomic())
-         {
-            mBase = (char *)hx::NewGCPrivate(0,bytes);
-#ifdef HXCPP_TELEMETRY
-            __hxt_new_array(mBase, bytes);
-#endif
-         }
-         else
-         {
-            mBase = (char *)hx::NewGCBytes(0,bytes);
-#ifdef HXCPP_TELEMETRY
-            __hxt_new_array(mBase, bytes);
-#endif
-         }
-         mAlloc = newAlloc;
+         char *base=(char *)hx::InternalNew(bytes,false);
+         memcpy(base,mBase,length*GetElementSize());
+         mBase = base;
       }
-      length = s;
+      else
+         mBase = (char *)hx::InternalRealloc(mBase, bytes );
    }
+   else
+   {
+      mBase = (char *)hx::InternalNew(bytes,false);
+#ifdef HXCPP_TELEMETRY
+      __hxt_new_array(mBase, bytes);
+#endif
+   }
+   mAlloc = newAlloc;
 }
 
 // Set numeric values to 0, pointers to null, bools to false
@@ -423,6 +411,7 @@ DEFINE_ARRAY_FUNC0(pop);
 DEFINE_ARRAY_FUNC0(copy);
 DEFINE_ARRAY_FUNC1(push);
 DEFINE_ARRAY_FUNC1(remove);
+DEFINE_ARRAY_FUNC1(removeAt);
 DEFINE_ARRAY_FUNC2(indexOf);
 DEFINE_ARRAY_FUNC2(lastIndexOf);
 DEFINE_ARRAY_FUNC0(reverse);
@@ -453,6 +442,7 @@ Dynamic ArrayBase::__Field(const String &inString, hx::PropertyAccess inCallProp
    if (inString==HX_CSTRING("pop")) return pop_dyn();
    if (inString==HX_CSTRING("push")) return push_dyn();
    if (inString==HX_CSTRING("remove")) return remove_dyn();
+   if (inString==HX_CSTRING("removeAt")) return removeAt_dyn();
    if (inString==HX_CSTRING("indexOf")) return indexOf_dyn();
    if (inString==HX_CSTRING("lastIndexOf")) return lastIndexOf_dyn();
    if (inString==HX_CSTRING("reverse")) return reverse_dyn();
@@ -485,6 +475,7 @@ static String sArrayFields[] = {
    HX_CSTRING("pop"),
    HX_CSTRING("push"),
    HX_CSTRING("remove"),
+   HX_CSTRING("removeAt"),
    HX_CSTRING("indexOf"),
    HX_CSTRING("lastIndexOf"),
    HX_CSTRING("reverse"),
