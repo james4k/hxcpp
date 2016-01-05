@@ -209,9 +209,9 @@ struct CppiaDynamicExpr : public CppiaExpr
 
    virtual int         runInt(CppiaCtx *ctx)    {
       hx::Object *obj = runObject(ctx);
-      return obj->__ToInt();
+      return ValToInt(obj);
    }
-   virtual Float       runFloat(CppiaCtx *ctx) { return runObject(ctx)->__ToDouble(); }
+   virtual Float       runFloat(CppiaCtx *ctx) { return ValToFloat(runObject(ctx)); }
    virtual ::String    runString(CppiaCtx *ctx)
    {
       hx::Object *result = runObject(ctx);
