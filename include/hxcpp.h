@@ -280,6 +280,10 @@ class MarkContext;
 class VisitContext
 {
 public:
+   #ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+   virtual void setThisObject(hx::Object *inThis) {}
+   virtual void setName(const char *inName) {}
+   #endif
    virtual void visitObject(hx::Object **ioPtr)=0;
    virtual void visitAlloc(void **ioPtr)=0;
 };

@@ -508,6 +508,38 @@ MID = HX_ENDIAN_MARK_ID_BYTE = is measured from the object pointer
 #endif
 
 
+inline unsigned int ObjectSize(void *inData)
+{
+   unsigned int header = ((unsigned int *)(inData))[-1];
+
+   return (header & IMMIX_ALLOC_ROW_COUNT) ?
+            ( (header & IMMIX_ALLOC_SIZE_MASK) >> IMMIX_ALLOC_SIZE_SHIFT) :
+             ((unsigned int *)(inData))[-2];
+}
+
+namespace hx {
+
+unsigned int ObjectSizeSafe(void *inData)
+{
+   unsigned int header = ((unsigned int *)(inData))[-1];
+   #ifdef HXCPP_GC_NURSERY
+   if (!(header & 0xff000000))
+   {
+      // Small object
+      if (header & 0x00ffffff)
+         return header & 0x0000ffff;
+      // Large object
+   }
+   #endif
+
+   return (header & IMMIX_ALLOC_ROW_COUNT) ?
+            ( (header & IMMIX_ALLOC_SIZE_MASK) >> IMMIX_ALLOC_SIZE_SHIFT) :
+             ((unsigned int *)(inData))[-2];
+}
+
+}
+
+
 void CriticalGCError(const char *inMessage)
 {
    // Can't perfrom normal handling because it needs the GC system
@@ -1327,7 +1359,12 @@ struct BlockDataInfo
                         hx::Object *obj = (hx::Object *)(row+pos+4);
                         // May be partially constructed
                         if (*(void **)obj)
+                        {
+                           #ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+                           inCtx->setThisObject(obj);
+                           #endif
                            obj->__Visit(inCtx);
+                        }
                      }
                   }
             }
@@ -4046,13 +4083,25 @@ public:
       for(int i=0;i<mLocalAllocs.size();i++)
          VisitLocalAlloc(mLocalAllocs[i], inCtx);
 
+      #ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+      inCtx->setThisObject(NULL);
+      #endif HXCPP_GC_DUMP_OBJECT_GRAPH
+
       hx::VisitClassStatics(inCtx);
 
       for(hx::RootSet::iterator i = hx::sgRootSet.begin(); i!=hx::sgRootSet.end(); ++i)
       {
          hx::Object **obj = *i;
          if (*obj)
+         {
+            #ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+            inCtx->setName("<gc_root>");
             inCtx->visitObject(obj);
+            inCtx->setName(NULL);
+            #else
+            inCtx->visitObject(obj);
+            #endif
+         }
       }
 
 
@@ -5102,6 +5151,122 @@ public:
 
       sgIsCollecting = false;
 
+#ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+      class ObjectPrinter : public hx::VisitContext
+      {
+         GlobalAllocator *mAlloc;
+         FILE *mOutput;
+         hx::Object *mThis;
+         const char *mName;
+      public:
+         ObjectPrinter(GlobalAllocator *inAlloc, FILE *inOutput)
+            : mAlloc(inAlloc), mOutput(inOutput), mThis(NULL), mName(NULL) {}
+
+         void setThisObject(hx::Object *inThis)
+         {
+            mThis = inThis;
+         }
+
+         void setName(const char *inName)
+         {
+            mName = inName;
+         }
+
+         void visitObject(hx::Object **ioPtr)
+         {
+            hx::Object *obj = *ioPtr;
+            unsigned int header = ((unsigned int *)(obj))[-1];
+            unsigned int size = ObjectSize(obj);
+
+            if ((header & HX_GC_CONST_ALLOC_BIT) != 0)
+            {
+               // TODO(james4k): account for alignment
+               switch (obj->__GetType ())
+               {
+                  case vtBool:
+                     size = sizeof(hx::Object) + sizeof(bool);
+                     break;
+                  case vtInt:
+                     size = sizeof(hx::Object) + sizeof(int);
+                     break;
+                  case vtFloat:
+                     size = sizeof(hx::Object) + sizeof(double);
+                     break;
+                  default:
+                     size = 0;
+                     break;
+               }
+            }
+
+            switch (obj->__GetType ())
+            {
+               case vtArray:
+               {
+                  // TODO(james4k): type param?
+                  const char *className = "Array";
+                  const char *fieldName = mName ? mName : "";
+                  fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
+                  break;
+               }
+               case vtClass:
+               case vtObject:
+               case vtEnum:
+               case vtInt:
+               case vtNull:
+               case vtFloat:
+               case vtBool:
+               case vtString:
+               case vtFunction:
+               {
+                  // TODO(james4k): type params?
+                  hx::Class classPtr = obj->__GetClass();
+                  const char *className = (classPtr.GetPtr() != NULL) ? classPtr->mName.c_str() : "NULL";
+                  const char *fieldName = mName ? mName : "";
+                  fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
+                  break;
+               }
+               default:
+               {
+                  if (obj->__GetType() >= vtAbstractBase)
+                  {
+                     int abstractType = obj->__GetType();
+                     const char *fieldName = mName ? mName : "";
+                     fprintf (mOutput, "%p,%p,%u,Abstract(%d),%s\n", mThis, obj, size, abstractType, fieldName);
+                  }
+                  break;
+               }
+            }
+
+         }
+
+         void visitAlloc(void **ioPtr)
+         {
+            void *ptr = *ioPtr;
+			unsigned int size = ObjectSize(ptr);
+            fprintf(mOutput, "%p,%p,%u,%s,\n", mThis, ptr, size, "<raw_alloc>");
+         }
+
+      };
+
+      // TODO(james4k): configurable options for when to dump
+      static size_t memUsageToDump = 0;
+      if (MemUsage() > memUsageToDump)
+      {
+         memUsageToDump = MemUsage();
+         FILE *f = fopen("object_graph.csv", "wb");
+         if (f == NULL)
+         {
+            printf("Failed to open object_graph.csv");
+         }
+         else
+         {
+            fprintf(f, "this_addr,member_addr,member_size,member_class_name,member_field_name\n");
+            ObjectPrinter printer(this, f);
+            VisitAll(&printer);
+            fclose(f);
+         }
+      }
+#endif
 
       hx::gPauseForCollect = 0x00000000;
       if (hx::gMultiThreadMode)
@@ -6181,34 +6346,6 @@ int InternalCollect(bool inMajor,bool inCompact)
    sGlobalAlloc->Collect(inMajor,inCompact);
 
    return sGlobalAlloc->MemUsage();
-}
-
-inline unsigned int ObjectSize(void *inData)
-{
-   unsigned int header = ((unsigned int *)(inData))[-1];
-
-   return (header & IMMIX_ALLOC_ROW_COUNT) ?
-            ( (header & IMMIX_ALLOC_SIZE_MASK) >> IMMIX_ALLOC_SIZE_SHIFT) :
-             ((unsigned int *)(inData))[-2];
-}
-
-
-unsigned int ObjectSizeSafe(void *inData)
-{
-   unsigned int header = ((unsigned int *)(inData))[-1];
-   #ifdef HXCPP_GC_NURSERY
-   if (!(header & 0xff000000))
-   {
-      // Small object
-      if (header & 0x00ffffff)
-         return header & 0x0000ffff;
-      // Large object
-   }
-   #endif
-
-   return (header & IMMIX_ALLOC_ROW_COUNT) ?
-            ( (header & IMMIX_ALLOC_SIZE_MASK) >> IMMIX_ALLOC_SIZE_SHIFT) :
-             ((unsigned int *)(inData))[-2];
 }
 
 void GCChangeManagedMemory(int inDelta, const char *inWhy)

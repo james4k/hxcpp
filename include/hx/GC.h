@@ -556,7 +556,15 @@ inline void MarkObjectAlloc(hx::Object *inPtr ,hx::MarkContext *__inCtx)
 
 
 
+#ifdef HXCPP_GC_DUMP_OBJECT_GRAPH
+#define HX_VISIT_MEMBER_NAME(x,name) { \
+	__inCtx->setName(name); \
+	hx::VisitMember(x, __inCtx ); \
+	__inCtx->setName(NULL); \
+}
+#else
 #define HX_VISIT_MEMBER_NAME(x,name) hx::VisitMember(x, __inCtx )
+#endif
 #define HX_VISIT_MEMBER(x) hx::VisitMember(x, __inCtx )
 
 #define HX_VISIT_OBJECT(ioPtr) \
