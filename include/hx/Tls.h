@@ -1,3 +1,9 @@
+#ifdef HX_TLS_H_OVERRIDE
+// Users can define their own header to use here, but there is no API
+// compatibility gaurantee for future changes.
+#include HX_TLS_H_OVERRIDE
+#else
+
 #ifndef HX_TLS_INCLUDED
 #define HX_TLS_INCLUDED
 
@@ -146,5 +152,7 @@ struct TLSData
 
 
 
+
+#endif
 
 #endif

@@ -153,32 +153,8 @@ public:
         gThreadRefCount += 1;
    
         if (gThreadRefCount == 1) {
-#if defined(HX_WINDOWS)
-#ifndef HX_WINRT
-            _beginthreadex(0, 0, ProfileMainLoop, 0, 0, 0);
-#else
-	   bool ok = true;
-	   try
-	   {
-	     auto workItemHandler = ref new WorkItemHandler([=](IAsyncAction^)
-	        {
-	            ProfileMainLoop(0);
-	        }, Platform::CallbackContext::Any);
-
-	      ThreadPool::RunAsync(workItemHandler, WorkItemPriority::Normal, WorkItemOptions::None);
-	   }
-	   catch (...)
-	   {
-	      ok = false;
-	   }
-
-
-#endif
-#else
-            pthread_t result;
-            pthread_create(&result, 0, ProfileMainLoop, 0);
-   #endif
-}
+            HxCreateDetachedThread(ProfileMainLoop, 0);
+        }
 
         gThreadMutex.Unlock();
     }
@@ -322,20 +298,7 @@ struct ProfileEntry
         int millis = 1;
 
         while (gThreadRefCount > 0) { 
-#ifdef HX_WINDOWS
-#ifndef HX_WINRT
-            Sleep(millis);
-#else
-            // TODO
-            Sleep(millis);
-#endif
-#else
-            struct timespec t;
-            struct timespec tmp;
-            t.tv_sec = 0;
-            t.tv_nsec = millis * 1000000;
-            nanosleep(&t, &tmp);
-#endif
+            HxSleep(millis);
 
             int count = gProfileClock + 1;
             gProfileClock = (count < 0) ? 0 : count;
