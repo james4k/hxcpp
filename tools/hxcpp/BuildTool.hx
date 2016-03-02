@@ -1357,7 +1357,7 @@ class BuildTool
             defines.set("BINDIR",m64 ? "Windows64":"Windows");
 
             // Choose between MSVC and MINGW
-            var useMsvc = false;
+            var useMsvc = true;
 
             if (defines.exists("mingw") || defines.exists("HXCPP_MINGW") || defines.exists("minimingw"))
                useMsvc = false;
@@ -1374,7 +1374,7 @@ class BuildTool
                    }
                 }
 
-                Log.v("Using default windows compiler : " + (useMsvc ? "MSVC" : "MinGW") );
+                Log.v("Using Windows compiler: " + (useMsvc ? "MSVC" : "MinGW") );
             }
 
             if (useMsvc)

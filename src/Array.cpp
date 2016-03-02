@@ -132,7 +132,7 @@ String ArrayBase::toString()
       return String( (const char *) mBase, length);
    }
 
-   return HX_CSTRING("[") + join(HX_CSTRING(",")) + HX_CSTRING("]");
+   return HX_CSTRING("[") + __join(HX_CSTRING(",")) + HX_CSTRING("]");
 }
 
 void ArrayBase::__SetSize(int inSize)
@@ -188,7 +188,16 @@ void ArrayBase::__SetSizeExact(int inSize)
 }
 
  
+Dynamic ArrayBase::__unsafe_get(const Dynamic &i)
+{
+   return __GetItem(i);
+}
 
+
+Dynamic ArrayBase::__unsafe_set(const Dynamic &i, const Dynamic &val)
+{
+   return __SetItem(i,val);
+} 
 
 
 
@@ -273,14 +282,19 @@ void ArrayBase::Concat(ArrayBase *outResult,const char *inSecond,int inLen)
 }
 
 
-String ArrayBase::join(String inSeparator)
+String ArrayBase::joinArray(Array_obj<String> *inArray, String inSeparator)
 {
+   int length = inArray->length;
+   if (length==0)
+      return HX_CSTRING("");
+
    int len = 0;
    for(int i=0;i<length;i++)
    {
-      len += ItemString(i).length;
+      String strI = inArray->__unsafe_get(i);
+      len += strI.__s ? strI.length : 4;
    }
-   if (length) len += (length-1) * inSeparator.length;
+   len += (length-1) * inSeparator.length;
 
    HX_CHAR *buf = hx::NewString(len);
 
@@ -288,9 +302,17 @@ String ArrayBase::join(String inSeparator)
    bool separated = inSeparator.length>0;
    for(int i=0;i<length;i++)
    {
-      String s = ItemString(i);
-      memcpy(buf+pos,s.__s,s.length*sizeof(HX_CHAR));
-      pos += s.length;
+      String strI = inArray->__unsafe_get(i);
+      if (!strI.__s)
+      {
+         memcpy(buf+pos,"null",4);
+         pos+=4;
+      }
+      else
+      {
+         memcpy(buf+pos,strI.__s,strI.length*sizeof(HX_CHAR));
+         pos += strI.length;
+      }
       if (separated && (i+1<length) )
       {
          memcpy(buf+pos,inSeparator.__s,inSeparator.length*sizeof(HX_CHAR));
@@ -300,6 +322,21 @@ String ArrayBase::join(String inSeparator)
    buf[len] = '\0';
 
    return String(buf,len);
+}
+
+
+
+String ArrayBase::joinArray(ArrayBase *inBase, String inSeparator)
+{
+   int length = inBase->length;
+   if (length==0)
+      return HX_CSTRING("");
+
+   Array<String> stringArray = Array_obj<String>::__new(length, length);
+   for(int i=0;i<length;i++)
+      stringArray->__unsafe_set(i, inBase->ItemString(i));
+
+   return stringArray->join(inSeparator);
 }
 
 template<typename T>
@@ -501,9 +538,14 @@ Dynamic ArrayCreateArgs(DynamicArray inArgs)
    return inArgs->__copy();
 }
 
+static bool ArrayCanCast(hx::Object *inInstance)
+{
+   return inInstance->__GetClass().mPtr == ArrayBase::__mClass.mPtr;
+}
+
 void ArrayBase::__boot()
 {
-   Static(__mClass) = hx::RegisterClass(HX_CSTRING("Array"),TCanCast<ArrayBase>,sNone,sArrayFields,
+   Static(__mClass) = hx::RegisterClass(HX_CSTRING("Array"),ArrayCanCast,sNone,sArrayFields,
                                     ArrayCreateEmpty,ArrayCreateArgs,0,0);
 }
 
@@ -534,4 +576,268 @@ Dynamic IteratorBase::__Field(const String &inString, hx::PropertyAccess inCallP
 }
 
 
+#ifdef HX_VARRAY_DEFINED
+// -------- VirtualArray -------------------------------------
 
+namespace cpp
+{
+
+
+
+#define DEFINE_VARRAY_FUNC(ret, func,array_list,dynamic_arg_list,arg_list,ARG_C) \
+struct VirtualArray_##func : public hx::Object \
+{ \
+   bool __IsFunction() const { return true; } \
+   VirtualArray mThis; \
+   VirtualArray_##func(VirtualArray inThis) : mThis(inThis) { } \
+   String toString() const{ return HX_CSTRING(#func) ; } \
+   String __ToString() const{ return HX_CSTRING(#func) ; } \
+   int __GetType() const { return vtFunction; } \
+   void *__GetHandle() const { return mThis.mPtr; } \
+   int __ArgCount() const { return ARG_C; } \
+   void __Mark(hx::MarkContext *__inCtx) { HX_MARK_MEMBER(mThis); } \
+   ARRAY_VISIT_FUNC \
+   Dynamic __Run(const Array<Dynamic> &inArgs) \
+   { \
+      ret mThis->func(array_list); return Dynamic(); \
+   } \
+   Dynamic __run(dynamic_arg_list) \
+   { \
+      ret mThis->func(arg_list); return Dynamic(); \
+   } \
+}; \
+Dynamic VirtualArray_obj::func##_dyn()  { return new VirtualArray_##func(this);  }
+
+
+#define DEFINE_VARRAY_FUNC0(ret,func) DEFINE_VARRAY_FUNC(ret,func,HX_ARR_LIST0,HX_DYNAMIC_ARG_LIST0,HX_ARG_LIST0,0)
+#define DEFINE_VARRAY_FUNC1(ret,func) DEFINE_VARRAY_FUNC(ret,func,HX_ARR_LIST1,HX_DYNAMIC_ARG_LIST1,HX_ARG_LIST1,1)
+#define DEFINE_VARRAY_FUNC2(ret,func) DEFINE_VARRAY_FUNC(ret,func,HX_ARR_LIST2,HX_DYNAMIC_ARG_LIST2,HX_ARG_LIST2,2)
+#define DEFINE_VARRAY_FUNC3(ret,func) DEFINE_VARRAY_FUNC(ret,func,HX_ARR_LIST3,HX_DYNAMIC_ARG_LIST3,HX_ARG_LIST3,3)
+#define DEFINE_VARRAY_FUNC4(ret,func) DEFINE_VARRAY_FUNC(ret,func,HX_ARR_LIST4,HX_DYNAMIC_ARG_LIST4,HX_ARG_LIST4,4)
+
+
+DEFINE_VARRAY_FUNC1(return,concat);
+DEFINE_VARRAY_FUNC2(,insert);
+DEFINE_VARRAY_FUNC0(return,iterator);
+DEFINE_VARRAY_FUNC1(return,join);
+DEFINE_VARRAY_FUNC0(return,pop);
+DEFINE_VARRAY_FUNC0(return,copy);
+DEFINE_VARRAY_FUNC1(return,push);
+DEFINE_VARRAY_FUNC1(return,remove);
+DEFINE_VARRAY_FUNC1(return,removeAt);
+DEFINE_VARRAY_FUNC2(return,indexOf);
+DEFINE_VARRAY_FUNC2(return,lastIndexOf);
+DEFINE_VARRAY_FUNC0(,reverse);
+DEFINE_VARRAY_FUNC0(return,shift);
+DEFINE_VARRAY_FUNC2(return,slice);
+DEFINE_VARRAY_FUNC2(return,splice);
+DEFINE_VARRAY_FUNC1(,sort);
+DEFINE_VARRAY_FUNC0(return,toString);
+DEFINE_VARRAY_FUNC1(,unshift);
+DEFINE_VARRAY_FUNC1(return,map);
+DEFINE_VARRAY_FUNC1(return,filter);
+DEFINE_VARRAY_FUNC1(,__SetSize);
+DEFINE_VARRAY_FUNC1(,__SetSizeExact);
+DEFINE_VARRAY_FUNC2(,zero);
+DEFINE_VARRAY_FUNC1(,memcmp);
+DEFINE_VARRAY_FUNC1(return,__unsafe_get);
+DEFINE_VARRAY_FUNC2(return,__unsafe_set);
+DEFINE_VARRAY_FUNC4(,blit);
+
+Dynamic VirtualArray_obj::__GetItem(int inIndex) const
+{
+   checkBase();
+   if (store==hx::arrayEmpty) return
+      null();
+   return base->__GetItem(inIndex);
+}
+
+Dynamic VirtualArray_obj::__SetItem(int inIndex,Dynamic inValue)
+{
+   checkBase();
+   EnsureStorage(inValue);
+   base->__SetItem(inIndex,inValue);
+   return inValue;
+}
+
+Dynamic VirtualArray_obj::__Field(const String &inString, hx::PropertyAccess inCallProp)
+{
+   if (inString==HX_CSTRING("length")) return Dynamic((int)size());
+   if (inString==HX_CSTRING("concat")) return concat_dyn();
+   if (inString==HX_CSTRING("insert")) return insert_dyn();
+   if (inString==HX_CSTRING("copy")) return copy_dyn();
+   if (inString==HX_CSTRING("iterator")) return iterator_dyn();
+   if (inString==HX_CSTRING("join")) return join_dyn();
+   if (inString==HX_CSTRING("pop")) return pop_dyn();
+   if (inString==HX_CSTRING("push")) return push_dyn();
+   if (inString==HX_CSTRING("remove")) return remove_dyn();
+   if (inString==HX_CSTRING("removeAt")) return removeAt_dyn();
+   if (inString==HX_CSTRING("indexOf")) return indexOf_dyn();
+   if (inString==HX_CSTRING("lastIndexOf")) return lastIndexOf_dyn();
+   if (inString==HX_CSTRING("reverse")) return reverse_dyn();
+   if (inString==HX_CSTRING("shift")) return shift_dyn();
+   if (inString==HX_CSTRING("splice")) return splice_dyn();
+   if (inString==HX_CSTRING("slice")) return slice_dyn();
+   if (inString==HX_CSTRING("sort")) return sort_dyn();
+   if (inString==HX_CSTRING("toString")) return toString_dyn();
+   if (inString==HX_CSTRING("unshift")) return unshift_dyn();
+   if (inString==HX_CSTRING("filter")) return filter_dyn();
+   if (inString==HX_CSTRING("map")) return map_dyn();
+   if (inString==HX_CSTRING("__SetSize")) return __SetSize_dyn();
+   if (inString==HX_CSTRING("__SetSizeExact")) return __SetSizeExact_dyn();
+   if (inString==HX_CSTRING("__unsafe_get")) return __unsafe_get_dyn();
+   if (inString==HX_CSTRING("__unsafe_set")) return __unsafe_set_dyn();
+   if (inString==HX_CSTRING("blit")) return blit_dyn();
+   if (inString==HX_CSTRING("zero")) return zero_dyn();
+   if (inString==HX_CSTRING("memcmp")) return memcmp_dyn();
+
+   return null();
+
+}
+
+
+hx::Class VirtualArray_obj::__GetClass() const { return ArrayBase::__mClass; }
+String VirtualArray_obj::toString()
+{
+   if (!base)
+   {
+      if (store==arrayEmpty)
+         return HX_CSTRING("[]");
+      return HX_CSTRING("null");
+   }
+   return base->toString();
+
+}
+
+void VirtualArray_obj::EnsureArrayStorage(Dynamic inValue)
+{
+}
+
+void VirtualArray_obj::MakeIntArray()
+{
+   if (!base)
+      base = new Array_obj<int>(0,0);
+   else
+   {
+      Array<Int> result = Dynamic(base);
+      base = result.mPtr;
+   }
+   store = arrayInt;
+}
+
+
+void VirtualArray_obj::MakeObjectArray()
+{
+   if (!base)
+      base = new Array_obj<Dynamic>(0,0);
+   else
+   {
+      Array<Dynamic> result = Dynamic(base);
+      base = result.mPtr;
+   }
+   store = arrayObject;
+}
+
+
+void VirtualArray_obj::MakeStringArray()
+{
+   if (!base)
+      base = new Array_obj<String>(0,0);
+   else
+   {
+      Array<String> result = Dynamic(base);
+      base = result.mPtr;
+   }
+   store = arrayString;
+}
+
+
+void VirtualArray_obj::MakeBoolArray()
+{
+   if (!base)
+      base = new Array_obj<Bool>(0,0);
+   else
+   {
+      Array<Bool> result = Dynamic(base);
+      base = result.mPtr;
+   }
+   store = arrayBool;
+}
+
+
+void VirtualArray_obj::MakeFloatArray()
+{
+   if (!base)
+      base = new Array_obj<Float>(0,0);
+   else
+   {
+      Array<Float> result = Dynamic(base);
+      base = result.mPtr;
+   }
+   store = arrayFloat;
+}
+
+
+
+void VirtualArray_obj::EnsureBase()
+{
+   if (!base)
+   {
+      base = new Array_obj<unsigned char>(0,0);
+      store = arrayInt;
+   }
+}
+
+VirtualArray VirtualArray_obj::splice(int inPos, int len)
+{
+   if ( store==hx::arrayEmpty )
+      return new VirtualArray_obj();
+
+   Dynamic cut = base->__splice(inPos, len);
+
+   VirtualArray result = new VirtualArray_obj( dynamic_cast<cpp::ArrayBase_obj *>(cut.mPtr), false);
+   result->store = store;
+   return result;
+}
+
+Dynamic VirtualArray_obj::map(Dynamic inFunc)
+{
+   VirtualArray result = new VirtualArray_obj( );
+   int len = get_length();
+   for(int i=0;i<len;i++)
+      result->push( inFunc(  base->__GetItem(i)  ) );
+   return result;
+}
+
+VirtualArray VirtualArray_obj::filter(Dynamic inFunc)
+{
+   if ( store==hx::arrayEmpty )
+      return new VirtualArray_obj();
+
+   Dynamic filtered = base->__filter(inFunc);
+
+   VirtualArray result = new VirtualArray_obj( dynamic_cast<cpp::ArrayBase_obj *>(filtered.mPtr), false);
+   result->store = store;
+   return result;
+}
+
+class EmptyIterator : public IteratorBase
+{
+public:
+   bool hasNext() { return false; }
+   Dynamic _dynamicNext() { return null(); }
+};
+
+
+
+Dynamic VirtualArray_obj::getEmptyIterator()
+{
+   return new EmptyIterator();
+}
+
+
+
+} // End namespace cpp
+
+
+#endif
