@@ -324,6 +324,7 @@ typedef bool PropertyAccess;
 #include <hx/Telemetry.h>
 #include <hx/StdLibs.h>
 #include <cpp/Pointer.h>
+#include <cpp/Int64.h>
 #include <hx/Native.h>
 #include <hx/Operators.h>
 #include <hx/Functions.h>
