@@ -89,6 +89,8 @@ static size_t sWorkingMemorySize          = 10*1024*1024;
 #if HX_HAS_ATOMIC && (HXCPP_GC_DEBUG_LEVEL==0)
   #if defined(HX_MACOS) || defined(HX_WINDOWS) || defined(HX_LINUX)
   enum { MAX_MARK_THREADS = 4 };
+  #elif defined(__psp2__)
+  enum { MAX_MARK_THREADS = 3 };
   #else
   enum { MAX_MARK_THREADS = 2 };
   #endif
