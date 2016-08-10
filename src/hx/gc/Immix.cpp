@@ -5285,6 +5285,7 @@ public:
             fclose(f);
          }
       }
+      else { memUsageToDump -= memUsageToDump / 100; }
 #endif
 
       hx::gPauseForCollect = 0x00000000;
