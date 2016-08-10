@@ -139,26 +139,27 @@ public:
    Int64Data(cpp::Int64 inValue=0) : mValue(inValue) {};
 
    hx::Class __GetClass() const { return __Int64Class; }
-   bool __Is(hx::Object *inClass) const { return dynamic_cast< DoubleData *>(inClass); }
+   bool __Is(hx::Object *inClass) const { return dynamic_cast< Int64Data *>(inClass); }
 
    virtual int __GetType() const { return vtFloat; }
    String toString() { return String(mValue); }
    String __ToString() const { return String(mValue); }
-   double __ToDouble() const { return mValue; }
+   double __ToDouble() const { return (double)mValue; }
    int __ToInt() const { return (int)mValue; }
    cpp::Int64 __ToInt64() const { return mValue; }
 
    int __Compare(const hx::Object *inRHS) const
    {
-      double rval = inRHS->__ToDouble();
-      if (rval==mValue)
-         return 0;
+	  double lval = (double)mValue;
+	  double rval = inRHS->__ToDouble();
+	  if (rval==lval)
+		 return 0;
 
-      return mValue < rval ? -1 :  1;
+	  return lval < rval ? -1 :  1;
    }
 
 
-   double mValue;
+   cpp::Int64 mValue;
 };
 
 
