@@ -107,9 +107,11 @@ bool Class_obj::SetNoStaticField(const String &inString, Dynamic &ioValue, hx::P
       return null();
 
    Array<String> result = Array_obj<String>::__new(0,0);
+   int elementCount = 0;
    for(String *s = inFuncs; s->length; s++)
-         result->Add( *s );
-    return result;
+	   elementCount++;
+   result->setUnmanagedData(&inFuncs[0], elementCount);
+   return result;
 }
 
 void Class_obj::registerScriptable(bool inOverwrite)
@@ -130,9 +132,8 @@ Class Class_obj::GetSuper()
 
 void Class_obj::__Mark(hx::MarkContext *__inCtx)
 {
-   HX_MARK_MEMBER(mName);
-   HX_MARK_MEMBER(mStatics);
-   HX_MARK_MEMBER(mMembers);
+   if (mStatics.mPtr) hx::MarkAlloc(mStatics.mPtr, __inCtx);
+   if (mMembers.mPtr) hx::MarkAlloc(mMembers.mPtr, __inCtx);
 }
 
 #ifdef HXCPP_VISIT_ALLOCS
