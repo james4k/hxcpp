@@ -80,6 +80,8 @@ struct Deque : public Array_obj<Dynamic>
 		if (!inBlock)
 		{
 			hx::ExitGCFreeZone();
+			if (length == 1)
+				mSemaphore.Reset();
 			return shift();
 		}
 		// Ok - wait for something on stack...
