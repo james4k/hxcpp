@@ -5206,24 +5206,28 @@ public:
                   const char *className = "Array";
                   const char *fieldName = mName ? mName : "";
                   hx::ArrayBase *arrayBase = (hx::ArrayBase *)obj;
-                  hx::ArrayStore storeType = arrayBase->getStoreType();
-                  switch (storeType)
+				  // getStoreType not necessarily implemented
+				  if (arrayBase->getStoreType != NULL)
                   {
-                     case hx::arrayBool:
-                        className = "Array<Bool>";
-                        break;
-                     case hx::arrayInt:
-                        className = "Array<Int>";
-                        break;
-                     case hx::arrayFloat:
-                        className = "Array<Float>";
-                        break;
-                     case hx::arrayString:
-                        className = "Array<String>";
-                        break;
-                     default:
-                        break;
-                  }
+                     hx::ArrayStore storeType = arrayBase->getStoreType();
+                     switch (storeType)
+                     {
+                        case hx::arrayBool:
+                           className = "Array<Bool>";
+                           break;
+                        case hx::arrayInt:
+                           className = "Array<Int>";
+                           break;
+                        case hx::arrayFloat:
+                           className = "Array<Float>";
+                           break;
+                        case hx::arrayString:
+                           className = "Array<String>";
+                           break;
+                        default:
+                           break;
+                     }
+				  }
                   fprintf (mOutput, "%p,%p,%u,%s,%s\n", mThis, obj, size, className, fieldName);
                   break;
                }
