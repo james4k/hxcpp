@@ -5207,7 +5207,7 @@ public:
                   const char *fieldName = mName ? mName : "";
                   hx::ArrayBase *arrayBase = (hx::ArrayBase *)obj;
 				  // getStoreType not necessarily implemented
-				  if (arrayBase->getStoreType != NULL)
+				  if (arrayBase->getArrayConvertId() != hx::aciVirtualArray)
                   {
                      hx::ArrayStore storeType = arrayBase->getStoreType();
                      switch (storeType)
